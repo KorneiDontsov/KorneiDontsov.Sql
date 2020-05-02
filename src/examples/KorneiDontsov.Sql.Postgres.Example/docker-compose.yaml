@@ -1,0 +1,33 @@
+﻿version: "3.3"
+volumes:
+  database-data:
+services:
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile-db
+    user: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - database-data:/var/lib/postgresql/data
+
+  webapp:
+    depends_on:
+      - database
+    build:
+      context: ../../
+      dockerfile: examples/KorneiDontsov.Sql.Postgres.Example/Dockerfile
+    command: [
+      "--environment", "Development",
+      "--urls", "http://0.0.0.0:80",
+
+      "--postgres:database", "kornei_dontsov_sql_example",
+      "--postgres:host", "database",
+      "--postgres:port", "5432",
+      "--postgres:username", "postgres",
+      "--postgres:password", "postgres",
+      "--postgres:awaitUntilDbIsReady", "True"
+    ]
+    ports:
+      - 80:80
