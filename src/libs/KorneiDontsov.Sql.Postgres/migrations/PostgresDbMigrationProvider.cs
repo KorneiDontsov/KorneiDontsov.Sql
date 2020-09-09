@@ -14,7 +14,6 @@
 		ValueTask CreateMigrationsTableIfNotExists
 			(ISqlProvider sqlProvider, String schemaName, CancellationToken cancellationToken) {
 			var sql =
-				"create schema if not exists \"{0}\";" +
 				"create table if not exists \"{0}\".migrations(index integer not null unique, id text not null unique)";
 			return sqlProvider.ExecuteAsync(String.Format(sql, schemaName), cancellationToken);
 		}
