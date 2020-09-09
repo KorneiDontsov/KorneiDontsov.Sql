@@ -88,19 +88,19 @@
 			}
 		}
 
-		static (String planId, List<MigrationDescriptor> descriptors) PlanMigrations (IDbMigrationPlan migrationPlan) {
+		static (String schema, List<MigrationDescriptor> descriptors) PlanMigrations (IDbMigrationPlan migrationPlan) {
 			var migrations = new DbMigrationCollection();
 			migrationPlan.Configure(migrations);
 
-			var planId =
-				migrationPlan.migrationPlanId switch {
-					null => throw new Exception("Migration plan id is null."),
-					"" => throw new Exception("Migration plan id is empty string."),
-					{} value when IsNullOrWhiteSpace(value) => throw new Exception("Migration plan id is white space."),
+			var schema =
+				migrationPlan.migrationSchema switch {
+					null => throw new Exception("Migration schema is null."),
+					"" => throw new Exception("Migration schema is empty string."),
+					{} value when IsNullOrWhiteSpace(value) => throw new Exception("Migration schema is white space."),
 					{} value => value
 				};
 
-			return (planId, migrations.descriptors);
+			return (schema, migrations.descriptors);
 		}
 
 		/// <exception cref = "SqlException" />
@@ -108,11 +108,11 @@
 		static async ValueTask<MigrationDescriptor?> MbNextDescriptor
 			(IDbMigrationProvider dbMigrationProvider,
 			 IRwSqlTransaction transaction,
-			 String planId,
+			 String migrationSchema,
 			 List<MigrationDescriptor> descriptors,
 			 CancellationToken cancellationToken) {
 			var mbLastMigration = await
-				dbMigrationProvider.MaybeLastMigrationInfo(transaction, planId, cancellationToken);
+				dbMigrationProvider.MaybeLastMigrationInfo(transaction, migrationSchema, cancellationToken);
 			if(! (mbLastMigration is {} lastMigration))
 				return descriptors[0];
 			else if(lastMigration.index < 0
@@ -171,12 +171,12 @@
 		/// <exception cref = "OperationCanceledException" />
 		async void BeginExecute (TaskCompletionSource<Object?> whenCompleted, CancellationToken cancellationToken) {
 			try {
-				var (planId, descriptors) = PlanMigrations(migrationPlan);
-				await using(await dbMigrationProvider.Lock(planId, cancellationToken))
+				var (schema, descriptors) = PlanMigrations(migrationPlan);
+				await using(await dbMigrationProvider.Lock(schema, cancellationToken))
 					while(true) {
 						await using var transaction = await dbProvider.BeginRwSerializable(cancellationToken);
 						var descriptor = await
-							MbNextDescriptor(dbMigrationProvider, transaction, planId, descriptors, cancellationToken);
+							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, cancellationToken);
 						if(descriptor is {})
 							try {
 								var startLog = "Run migration '{migrationId}' ({current}/{total}).";
@@ -185,7 +185,7 @@
 								await MigrateAsync(transaction, descriptor, cancellationToken);
 								await dbMigrationProvider.SetLastMigrationInfo(
 									transaction,
-									planId,
+									schema,
 									descriptor.index,
 									descriptor.id,
 									cancellationToken);

@@ -20,9 +20,9 @@
 
 		/// <inheritdoc />
 		public async ValueTask<IAsyncDisposable> Lock
-			(String migrationPlanId,
+			(String migrationSchema,
 			 CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			var schemaName = migrationSchema.ToLower();
 			await dbProvider.UsingRwReadCommitted().ExecuteAsync(
 				$"create table if not exists \"{schemaName}\".migration_sync()",
 				cancellationToken);
@@ -43,8 +43,8 @@
 
 		/// <inheritdoc />
 		public async ValueTask<(Int32 index, String id)?> MaybeLastMigrationInfo
-			(IRwSqlTransaction transaction, String migrationPlanId, CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			(IRwSqlTransaction transaction, String migrationSchema, CancellationToken cancellationToken = default) {
+			var schemaName = migrationSchema.ToLower();
 
 			await CreateMigrationsTableIfNotExists(transaction, schemaName, cancellationToken);
 
@@ -58,11 +58,11 @@
 		/// <inheritdoc />
 		public async ValueTask SetLastMigrationInfo
 			(IRwSqlTransaction transaction,
-			 String migrationPlanId,
+			 String migrationSchema,
 			 Int32 migrationIndex,
 			 String migrationId,
 			 CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			var schemaName = migrationSchema.ToLower();
 
 			await CreateMigrationsTableIfNotExists(transaction, schemaName, cancellationToken);
 
