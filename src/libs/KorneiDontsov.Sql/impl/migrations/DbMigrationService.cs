@@ -1,4 +1,4 @@
-﻿namespace KorneiDontsov.Sql.Migrations {
+namespace KorneiDontsov.Sql.Migrations {
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
@@ -54,15 +54,21 @@
 			}
 		}
 
-		class DbMigrationCollection: IDbMigrationCollection {
-			public List<MigrationDescriptor> descriptors { get; } =
+		class MigrationDescriptorCollection: IDbMigrationCollection {
+			readonly List<MigrationDescriptor> descriptors =
 				new List<MigrationDescriptor>();
 
-			HashSet<Type> migrationTypeSet { get; } =
+			readonly Dictionary<String, MigrationDescriptor> descriptorsByIds =
+				new Dictionary<String, MigrationDescriptor>();
+
+			readonly HashSet<Type> migrationTypeSet =
 				new HashSet<Type>();
 
-			Dictionary<String, Type> migrationTypesByIds { get; } =
-				new Dictionary<String, Type>();
+			public Int32 count => descriptors.Count;
+
+			public MigrationDescriptor this [Int32 index] => descriptors[index];
+
+			public MigrationDescriptor? MayGetById (String id) => descriptorsByIds.GetValueOrDefault(id);
 
 			/// <inheritdoc />
 			public void Add (Type migrationType, params Object[] parameters) {
@@ -77,10 +83,10 @@
 					var msg = $"Migration type {migrationType} is already registered.";
 					throw new ArgumentException(msg, nameof(migrationType));
 				}
-				else if(! migrationTypesByIds.TryAdd(descriptor.id, migrationType)) {
+				else if(! descriptorsByIds.TryAdd(descriptor.id, descriptor)) {
 					var msg =
 						$"Migration id {descriptor.id} of type {migrationType} is already used "
-						+ $"by type {migrationTypesByIds[descriptor.id]}.";
+						+ $"by type {descriptorsByIds[descriptor.id].type}.";
 					throw new ArgumentException(msg, nameof(migrationType));
 				}
 				else
@@ -88,19 +94,19 @@
 			}
 		}
 
-		static (String planId, List<MigrationDescriptor> descriptors) PlanMigrations (IDbMigrationPlan migrationPlan) {
-			var migrations = new DbMigrationCollection();
-			migrationPlan.Configure(migrations);
-
-			var planId =
-				migrationPlan.migrationPlanId switch {
-					null => throw new Exception("Migration plan id is null."),
-					"" => throw new Exception("Migration plan id is empty string."),
-					{} value when IsNullOrWhiteSpace(value) => throw new Exception("Migration plan id is white space."),
+		static (String schema, MigrationDescriptorCollection descriptors) Descript (IDbMigrationPlan migrationPlan) {
+			var schema =
+				migrationPlan.migrationSchema switch {
+					null => throw new Exception("Migration schema is null."),
+					"" => throw new Exception("Migration schema is empty string."),
+					{} value when IsNullOrWhiteSpace(value) => throw new Exception("Migration schema is white space."),
 					{} value => value
 				};
 
-			return (planId, migrations.descriptors);
+			var migrationDescriptors = new MigrationDescriptorCollection();
+			migrationPlan.Configure(migrationDescriptors);
+
+			return (schema, migrationDescriptors);
 		}
 
 		/// <exception cref = "SqlException" />
@@ -108,22 +114,34 @@
 		static async ValueTask<MigrationDescriptor?> MbNextDescriptor
 			(IDbMigrationProvider dbMigrationProvider,
 			 IRwSqlTransaction transaction,
-			 String planId,
-			 List<MigrationDescriptor> descriptors,
+			 String migrationSchema,
+			 MigrationDescriptorCollection descriptors,
 			 CancellationToken cancellationToken) {
 			var mbLastMigration = await
-				dbMigrationProvider.MaybeLastMigrationInfo(transaction, planId, cancellationToken);
+				dbMigrationProvider.MaybeLastMigrationInfo(transaction, migrationSchema, cancellationToken);
 			if(! (mbLastMigration is {} lastMigration))
 				return descriptors[0];
-			else if(lastMigration.index < 0
-			        || lastMigration.index >= descriptors.Count
-			        || descriptors[lastMigration.index].id != lastMigration.id) {
-				var msg = "Failed to migrate database because last migration "
-				          + $"'{lastMigration.id}' at '{lastMigration.index}' is not known.";
+			else if(descriptors.MayGetById(lastMigration.id) is {index: var expectedIndex}
+			        && lastMigration.index != expectedIndex) {
+				var msg =
+					$"Expected migration '{lastMigration.id}' to be at '{expectedIndex}', but found at "
+					+ $"{lastMigration.index} as last registered migration in database.";
+				throw new SqlException.MigrationFailure(msg);
+			}
+			else if(lastMigration.index < 0 || lastMigration.index >= descriptors.count) {
+				var msg =
+					$"Last migration that is registered in database as '{lastMigration.id}' at '{lastMigration.index}' "
+					+ "is not known.";
+				throw new SqlException.MigrationFailure(msg);
+			}
+			else if(descriptors[lastMigration.index].id != lastMigration.id) {
+				var msg =
+					$"Last migration that is registered in database as '{lastMigration.id}' at '{lastMigration.index}' "
+					+ $"is not known. Expected migration '{descriptors[lastMigration.index]}' here.";
 				throw new SqlException.MigrationFailure(msg);
 			}
 			else if(lastMigration.index + 1 is var nextMigrationIndex
-			        && nextMigrationIndex < descriptors.Count)
+			        && nextMigrationIndex < descriptors.count)
 				return descriptors[nextMigrationIndex];
 			else
 				return null;
@@ -171,21 +189,21 @@
 		/// <exception cref = "OperationCanceledException" />
 		async void BeginExecute (TaskCompletionSource<Object?> whenCompleted, CancellationToken cancellationToken) {
 			try {
-				var (planId, descriptors) = PlanMigrations(migrationPlan);
-				await using(await dbMigrationProvider.Lock(planId, cancellationToken))
+				var (schema, descriptors) = Descript(migrationPlan);
+				await using(await dbMigrationProvider.Lock(schema, cancellationToken))
 					while(true) {
 						await using var transaction = await dbProvider.BeginRwSerializable(cancellationToken);
 						var descriptor = await
-							MbNextDescriptor(dbMigrationProvider, transaction, planId, descriptors, cancellationToken);
+							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, cancellationToken);
 						if(descriptor is {})
 							try {
 								var startLog = "Run migration '{migrationId}' ({current}/{total}).";
-								logger.LogInformation(startLog, descriptor.id, descriptor.index + 1, descriptors.Count);
+								logger.LogInformation(startLog, descriptor.id, descriptor.index + 1, descriptors.count);
 
 								await MigrateAsync(transaction, descriptor, cancellationToken);
 								await dbMigrationProvider.SetLastMigrationInfo(
 									transaction,
-									planId,
+									schema,
 									descriptor.index,
 									descriptor.id,
 									cancellationToken);

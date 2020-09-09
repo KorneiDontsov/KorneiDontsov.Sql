@@ -14,16 +14,15 @@
 		ValueTask CreateMigrationsTableIfNotExists
 			(ISqlProvider sqlProvider, String schemaName, CancellationToken cancellationToken) {
 			var sql =
-				"create schema if not exists \"{0}\";" +
 				"create table if not exists \"{0}\".migrations(index integer not null unique, id text not null unique)";
 			return sqlProvider.ExecuteAsync(String.Format(sql, schemaName), cancellationToken);
 		}
 
 		/// <inheritdoc />
 		public async ValueTask<IAsyncDisposable> Lock
-			(String migrationPlanId,
+			(String migrationSchema,
 			 CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			var schemaName = migrationSchema.ToLower();
 			await dbProvider.UsingRwReadCommitted().ExecuteAsync(
 				$"create table if not exists \"{schemaName}\".migration_sync()",
 				cancellationToken);
@@ -44,8 +43,8 @@
 
 		/// <inheritdoc />
 		public async ValueTask<(Int32 index, String id)?> MaybeLastMigrationInfo
-			(IRwSqlTransaction transaction, String migrationPlanId, CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			(IRwSqlTransaction transaction, String migrationSchema, CancellationToken cancellationToken = default) {
+			var schemaName = migrationSchema.ToLower();
 
 			await CreateMigrationsTableIfNotExists(transaction, schemaName, cancellationToken);
 
@@ -59,11 +58,11 @@
 		/// <inheritdoc />
 		public async ValueTask SetLastMigrationInfo
 			(IRwSqlTransaction transaction,
-			 String migrationPlanId,
+			 String migrationSchema,
 			 Int32 migrationIndex,
 			 String migrationId,
 			 CancellationToken cancellationToken = default) {
-			var schemaName = migrationPlanId.ToLower();
+			var schemaName = migrationSchema.ToLower();
 
 			await CreateMigrationsTableIfNotExists(transaction, schemaName, cancellationToken);
 

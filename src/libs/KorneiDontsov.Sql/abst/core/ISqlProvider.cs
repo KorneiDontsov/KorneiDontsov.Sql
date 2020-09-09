@@ -12,13 +12,18 @@
 
 		Int32 defaultQueryTimeout { get; }
 
+		/// <param name = "affect">
+		///     Specifies which count of rows is expected to affect. If actual count of affected rows differs
+		///     then <see cref = "SqlException.AssertionFailure" /> is thrown.
+		/// </param>
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
 		ValueTask ExecuteAsync
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
-			 Int32? queryTimeout = null);
+			 Int32? queryTimeout = null,
+			 Affect affect = Affect.Any);
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />

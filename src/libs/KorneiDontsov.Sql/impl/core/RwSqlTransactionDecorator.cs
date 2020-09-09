@@ -24,8 +24,9 @@
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
-			 Int32? queryTimeout = null) =>
-			transaction.ExecuteAsync(sql, cancellationToken, args, queryTimeout);
+			 Int32? queryTimeout = null,
+			 Affect affect = Affect.Any) =>
+			transaction.ExecuteAsync(sql, cancellationToken, args, queryTimeout, affect);
 
 		/// <inheritdoc />
 		public ValueTask<Int32> QueryAffectedRowsCount

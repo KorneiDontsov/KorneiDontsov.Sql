@@ -32,10 +32,12 @@
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
-			 Int32? queryTimeout = null) {
+			 Int32? queryTimeout = null,
+			 Affect affect = Affect.Any) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				await transaction.ExecuteAsync(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				await transaction.ExecuteAsync(sql, cancellationToken, args, queryTimeout, affect)
+					.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
 			finally {

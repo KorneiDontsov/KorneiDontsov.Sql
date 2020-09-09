@@ -81,10 +81,31 @@
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
-			 Int32? queryTimeout = null) {
+			 Int32? queryTimeout = null,
+			 Affect affect = Affect.Any) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				await npgsqlConnection.ExecuteAsync(cmd);
+				var affectedRowsCount = await npgsqlConnection.ExecuteAsync(cmd);
+				var assertionFailure =
+					affect switch {
+						Affect.SingleRow when affectedRowsCount != 1 =>
+							$"Expected query to affect single row, but affected {affectedRowsCount} rows.",
+						Affect.AtLeastOneRow when affectedRowsCount < 1 =>
+							$"Expected query to affect at least one row, but affected {affectedRowsCount} rows.",
+						_ =>
+							null
+					};
+				if(assertionFailure is {}) {
+					var msg =
+						assertionFailure
+						+ $"{Environment.NewLine}Connection string: {npgsqlConnection.ConnectionString}"
+						+ $"{Environment.NewLine}Query:{Environment.NewLine}"
+						+ sql;
+					throw new SqlException.AssertionFailure(msg);
+				}
+			}
+			catch(SqlException) {
+				throw;
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);

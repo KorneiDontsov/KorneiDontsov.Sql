@@ -81,14 +81,14 @@
 
 			static Int32 GetInt32 (IConfigurationSection conf, String propName) =>
 				conf[propName] switch {
-					{} propValue when Int32.TryParse(propValue, out var portValue) => portValue,
+					{} propValue when Int32.TryParse(propValue, out var intValue) => intValue,
 					{} propValue => throw NotInteger(propName, propValue, conf),
 					null => throw NotFound(propName, conf)
 				};
 
 			static Int32 GetInt32OrDefault (IConfigurationSection conf, String propName, Int32 defaultValue) =>
 				conf[propName] switch {
-					{} propValue when Int32.TryParse(propValue, out var portValue) => portValue,
+					{} propValue when Int32.TryParse(propValue, out var intValue) => intValue,
 					{} propValue => throw NotInteger(propName, propValue, conf),
 					null => defaultValue
 				};

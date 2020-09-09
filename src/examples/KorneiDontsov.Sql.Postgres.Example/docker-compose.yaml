@@ -18,16 +18,10 @@ services:
     build:
       context: ../../
       dockerfile: examples/KorneiDontsov.Sql.Postgres.Example/Dockerfile
-    command: [
-      "--environment", "Development",
-      "--urls", "http://0.0.0.0:80",
-
-      "--postgres:database", "kornei_dontsov_sql_example",
-      "--postgres:host", "database",
-      "--postgres:port", "5432",
-      "--postgres:username", "postgres",
-      "--postgres:password", "postgres",
-      "--postgres:awaitUntilDbIsReady", "True"
-    ]
+    environment:
+        DOTNET_ENVIRONMENT: Development
+        urls: http://0.0.0.0:80
+        postgres:host: database
+        postgres:port: 5432
     ports:
       - 80:80
