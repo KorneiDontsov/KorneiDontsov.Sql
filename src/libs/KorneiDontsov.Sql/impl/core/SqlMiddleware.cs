@@ -4,9 +4,7 @@
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
 	using System;
-	using System.Data;
-	using System.Net.Mime;
-	using System.Threading;
+	using System.Linq;
 	using System.Threading.Tasks;
 	using static System.Threading.Interlocked;
 
@@ -35,6 +33,7 @@
 			var mbEndpoint = context.GetEndpoint();
 
 			DbMigrationResult? dbMigrationResult;
+
 			if(dbMigrationState is null)
 				dbMigrationResult = null;
 			else {
@@ -49,59 +48,81 @@
 
 			switch(dbMigrationResult) {
 				case DbMigrationResult.Canceled _:
-					context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-					context.Response.ContentType = MediaTypeNames.Text.Plain;
-					await context.Response.WriteAsync(
+					await context.WriteTextResponse(
+						StatusCodes.Status503ServiceUnavailable,
 						environment.IsDevelopment()
 							? "Database migration is canceled. Service is stopping."
 							: "Service is stopping.");
 					break;
 
 				case DbMigrationResult.Failed failedResult:
-					context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-					context.Response.ContentType = MediaTypeNames.Text.Plain;
-					await context.Response.WriteAsync(
+					await context.WriteTextResponse(
+						StatusCodes.Status500InternalServerError,
 						environment.IsDevelopment()
-							? "Internal error occurred. Service is stopping."
-							: $"Database migration failed. Service is stopping.\n{failedResult.info}");
+							? $"Database migration failed. Service is stopping.\n{failedResult.info}"
+							: "Internal error occurred. Service is stopping.");
 					break;
 
 				case DbMigrationResult.Succeeded _:
 				case null:
-					var mbAccess = mbEndpoint?.Metadata.GetMetadata<IBeginAccessEndpointMetadata?>()?.access;
-					var mbIsoLevel = mbEndpoint?.Metadata.GetMetadata<IBeginIsolationLevelEndpointMetadata?>()
-						?.isolationLevel;
+					var mbBeginMetadata = mbEndpoint?.Metadata.GetMetadata<IBeginSqlTransactionEndpointMetadata?>();
+					var mbCommitOnMetadata =
+						mbEndpoint?.Metadata.GetOrderedMetadata<ICommitOnEndpointMetadata>()
+							.Select(data => data.statusCode)
+							.ToHashSet();
 
-					while(true) {
-						context.RequestAborted.ThrowIfCancellationRequested();
+					if(mbBeginMetadata is {}
+					   && ! (mbBeginMetadata.access is SqlAccess.Ro)
+					   && (mbCommitOnMetadata is null || mbCommitOnMetadata.Count is 0)) {
+						var log =
+							"Denied to execute endpoint {requestMethod} {requestPath}: "
+							+ "endpoint requests read-write sql transaction to begin but it doesn't specify "
+							+ "commit conditions. Probably, one or more attributes [CommitOn] are missed.";
+						logger.LogError(log, context.Request.Method, context.Request.Path);
 
-						try {
-							sqlScopeState.transaction ??=
-								(mbAccess, mbIsoLevel) switch {
-									(SqlAccess.Rw, _) => await dbProvider.BeginRw(
-										mbIsoLevel ?? IsolationLevel.Serializable),
-									(SqlAccess.Ro, _) => await dbProvider.BeginRo(
-										mbIsoLevel ?? IsolationLevel.Serializable),
-									(null, {} isolationLevel) => await dbProvider.Begin(SqlAccess.Ro, isolationLevel),
-									(null, null) => null
-								};
-							await next(context);
-							await (sqlScopeState.transaction?.CommitAsync(context.RequestAborted) ?? default);
-							break;
-						}
-						catch(SqlException.SerializationFailure ex) {
-							var log =
-								"Failed to complete {requestProtocol} {requestMethod} {requestPath} with serialization failure."
-								+ " Going to try again.";
-							logger.LogWarning(
-								ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
-
-							sqlScopeState.InvokeRetryEvent();
-						}
-						finally {
-							await (Exchange(ref sqlScopeState.transaction, null)?.DisposeAsync() ?? default);
-						}
+						await context.WriteTextResponse(
+							StatusCodes.Status500InternalServerError,
+							environment.IsDevelopment()
+								? "Endpoint configuration error."
+								: "Internal error occurred.");
 					}
+					else
+						while(true) {
+							context.RequestAborted.ThrowIfCancellationRequested();
+
+							try {
+								sqlScopeState.transaction ??=
+									mbBeginMetadata switch {
+										{ access: SqlAccess.Rw } =>
+											await dbProvider.BeginRw(mbBeginMetadata.isolationLevel),
+										{ access: SqlAccess.Ro } =>
+											await dbProvider.BeginRo(mbBeginMetadata.isolationLevel),
+										{ access: null } =>
+											await dbProvider.Begin(SqlAccess.Ro, mbBeginMetadata.isolationLevel),
+										null => null
+									};
+
+								await next(context);
+
+								if(sqlScopeState.transaction is {} transaction
+								   && mbCommitOnMetadata?.Contains(context.Response.StatusCode) is true)
+									await transaction.CommitAsync(context.RequestAborted);
+
+								break;
+							}
+							catch(SqlException.SerializationFailure ex) {
+								var log =
+									"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
+									+ "serialization failure. Going to try again.";
+								logger.LogWarning(
+									ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+
+								sqlScopeState.InvokeRetryEvent();
+							}
+							finally {
+								await (Exchange(ref sqlScopeState.transaction, null)?.DisposeAsync() ?? default);
+							}
+						}
 					break;
 
 				default:

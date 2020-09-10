@@ -1,7 +1,8 @@
 ﻿namespace KorneiDontsov.Sql {
 	using System.Data;
 
-	public interface IBeginIsolationLevelEndpointMetadata {
+	public interface IBeginSqlTransactionEndpointMetadata {
 		IsolationLevel isolationLevel { get; }
+		SqlAccess? access => null;
 	}
 }
