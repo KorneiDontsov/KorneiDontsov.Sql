@@ -53,10 +53,10 @@
 
 		async Task PingDbUntilItsReady (String connectionString) {
 			try {
-				while(! appLifetime.ApplicationStopped.IsCancellationRequested)
+				while(! appLifetime.ApplicationStopped.IsCancellationRequested) {
+					var npgsqlConnection = new NpgsqlConnection(connectionString);
 					try {
-						var npgsqlConnection = new NpgsqlConnection(connectionString);
-						await npgsqlConnection.OpenAsync(appLifetime.ApplicationStopped);
+						await npgsqlConnection.OpenAsync(appLifetime.ApplicationStopped).ConfigureAwait(false);
 						break;
 					}
 					catch(NpgsqlException ex)
@@ -66,17 +66,19 @@
 						var log = "Database is not yet ready for use.\n{connectionString}";
 						logger.LogInformation(ex, log, connectionString);
 
-						await Task.Delay(500, appLifetime.ApplicationStopped);
+						await Task.Delay(500, appLifetime.ApplicationStopped).ConfigureAwait(false);
 					}
+					finally { await npgsqlConnection.DisposeAsync().ConfigureAwait(false); }
+				}
 			}
 			catch(OperationCanceledException) { }
 		}
 
 		async Task HandlePingDbTask (Task pingDbTask, CancellationToken cancellationToken) {
-			var whenCompletedOrCanceled = await
-				Task.WhenAny(pingDbTask, Task.Delay(Timeout.Infinite, cancellationToken));
+			var whenCompletedOrCanceled =
+				await Task.WhenAny(pingDbTask, Task.Delay(Timeout.Infinite, cancellationToken)).ConfigureAwait(false);
 			if(whenCompletedOrCanceled != pingDbTask)
-				await whenCompletedOrCanceled;
+				await whenCompletedOrCanceled.ConfigureAwait(false);
 			else if(! pingDbTask.IsCompletedSuccessfully) {
 				var msg =
 					"Failed to await until database is ready to accept connections. "
@@ -107,16 +109,18 @@
 			 IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken);
+			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction = await
-					npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false);
+				npgsqlTransaction =
+					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
+						.ConfigureAwait(false);
 			}
 			catch(Exception ex) {
+				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
 				NpgsqlExceptions.Handle(ex);
 				throw;
 			}
@@ -125,7 +129,7 @@
 			var transaction =
 				new PostgresTransaction(npgsqlConnection, npgsqlTransaction, access, isolationLevel, timeout);
 
-			await transaction.SetAccessAsync(access, cancellationToken);
+			await transaction.SetAccessAsync(access, cancellationToken).ConfigureAwait(false);
 			return transaction;
 		}
 
@@ -134,16 +138,18 @@
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken);
+			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction = await
-					npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false);
+				npgsqlTransaction =
+					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
+						.ConfigureAwait(false);
 			}
 			catch(Exception ex) {
+				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
 				NpgsqlExceptions.Handle(ex);
 				throw;
 			}
@@ -152,7 +158,7 @@
 			var transaction =
 				new PostgresRwTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-			await transaction.SetRwAsync(cancellationToken);
+			await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
 			return transaction;
 		}
 
@@ -161,16 +167,18 @@
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken);
+			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction = await
-					npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken).ConfigureAwait(false);
+				npgsqlTransaction =
+					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
+						.ConfigureAwait(false);
 			}
 			catch(Exception ex) {
+				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
 				NpgsqlExceptions.Handle(ex);
 				throw;
 			}
@@ -179,7 +187,7 @@
 			var transaction =
 				new PostgresRoTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-			await transaction.SetRoAsync(cancellationToken);
+			await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
 			return transaction;
 		}
 	}

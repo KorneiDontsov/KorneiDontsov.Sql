@@ -7,7 +7,7 @@
 			},
 			"applicationUrl": "http://localhost:80",
 			"launchBrowser": true,
-			"launchUrl": "api/posts/last"
+			"launchUrl": "api/posts"
 		}
 	}
 }

@@ -53,8 +53,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryAffectedRowsCount(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryAffectedRowsCount(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -72,8 +72,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				var result =
+					await transaction.QueryRows(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}
@@ -90,9 +90,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows<T>(sql, cancellationToken, args, queryTimeout)
-						.ConfigureAwait(false);
+				var result =
+					await transaction.QueryRows<T>(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}
@@ -111,8 +110,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -132,8 +131,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -153,8 +152,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -174,8 +173,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -195,8 +194,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -216,8 +215,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -235,8 +234,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryFirstRow(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryFirstRow(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -254,8 +253,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryFirstRow<T>(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryFirstRow<T>(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -273,8 +272,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryFirstRowOrDefault(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryFirstRowOrDefault(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -292,8 +291,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryFirstRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QueryFirstRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -311,8 +310,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QuerySingleRow(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				var result =
+					await transaction.QuerySingleRow(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}
@@ -329,8 +328,9 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QuerySingleRow<T>(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				var result =
+					await transaction.QuerySingleRow<T>(sql, cancellationToken, args, queryTimeout)
+						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}
@@ -347,8 +347,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QuerySingleRowOrDefault(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QuerySingleRowOrDefault(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -366,8 +366,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QuerySingleRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
+				var result =
+					await transaction.QuerySingleRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
 						.ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
@@ -385,8 +385,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryScalar(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				var result =
+					await transaction.QueryScalar(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}
@@ -403,8 +403,8 @@
 			 Int32? queryTimeout = null) {
 			var transaction = await BeginTransaction(cancellationToken).ConfigureAwait(false);
 			try {
-				var result = await
-					transaction.QueryScalar<T>(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
+				var result =
+					await transaction.QueryScalar<T>(sql, cancellationToken, args, queryTimeout).ConfigureAwait(false);
 				await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 				return result;
 			}

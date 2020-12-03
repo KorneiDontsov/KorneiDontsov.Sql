@@ -40,15 +40,15 @@
 		public async ValueTask DisposeAsync () {
 			if(! isDisposed) {
 				isDisposed = true;
-				await npgsqlTransaction.DisposeAsync();
-				await npgsqlConnection.DisposeAsync();
+				await npgsqlTransaction.DisposeAsync().ConfigureAwait(false);
+				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
 			}
 		}
 
 		/// <inheritdoc />
 		public async ValueTask CommitAsync (CancellationToken cancellationToken = default) {
 			try {
-				await npgsqlTransaction.CommitAsync(cancellationToken);
+				await npgsqlTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -59,7 +59,7 @@
 		/// <inheritdoc />
 		public async ValueTask RollbackAsync (CancellationToken cancellationToken = default) {
 			try {
-				await npgsqlTransaction.RollbackAsync(cancellationToken);
+				await npgsqlTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -85,7 +85,7 @@
 			 Affect affect = Affect.Any) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				var affectedRowsCount = await npgsqlConnection.ExecuteAsync(cmd);
+				var affectedRowsCount = await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
 				var assertionFailure =
 					affect switch {
 						Affect.SingleRow when affectedRowsCount != 1 =>
@@ -121,7 +121,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.ExecuteAsync(cmd);
+				return await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -137,7 +137,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd);
+				return await npgsqlConnection.QueryAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -153,7 +153,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync<T>(cmd);
+				return await npgsqlConnection.QueryAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -170,7 +170,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -187,7 +187,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -204,7 +204,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -221,7 +221,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -238,7 +238,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -255,7 +255,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryAsync(cmd, map, splitOn);
+				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -271,7 +271,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryFirstAsync(cmd);
+				return await npgsqlConnection.QueryFirstAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -287,7 +287,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryFirstAsync<T>(cmd);
+				return await npgsqlConnection.QueryFirstAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -303,7 +303,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryFirstOrDefaultAsync(cmd);
+				return await npgsqlConnection.QueryFirstOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -319,7 +319,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QueryFirstOrDefaultAsync<T>(cmd);
+				return await npgsqlConnection.QueryFirstOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -335,7 +335,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QuerySingleAsync(cmd);
+				return await npgsqlConnection.QuerySingleAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -351,7 +351,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QuerySingleAsync<T>(cmd);
+				return await npgsqlConnection.QuerySingleAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -367,7 +367,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QuerySingleOrDefaultAsync(cmd);
+				return await npgsqlConnection.QuerySingleOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -383,7 +383,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.QuerySingleOrDefaultAsync<T>(cmd);
+				return await npgsqlConnection.QuerySingleOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -399,7 +399,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.ExecuteScalarAsync(cmd);
+				return await npgsqlConnection.ExecuteScalarAsync(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
@@ -415,7 +415,7 @@
 			 Int32? queryTimeout = null) {
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
-				return await npgsqlConnection.ExecuteScalarAsync<T>(cmd);
+				return await npgsqlConnection.ExecuteScalarAsync<T>(cmd).ConfigureAwait(false);
 			}
 			catch(Exception ex) {
 				NpgsqlExceptions.Handle(ex);
