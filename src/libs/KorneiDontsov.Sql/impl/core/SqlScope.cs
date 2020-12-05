@@ -1,6 +1,7 @@
 ﻿namespace KorneiDontsov.Sql {
 	using Microsoft.Extensions.DependencyInjection;
 	using System;
+	using System.Data;
 	using System.Threading.Tasks;
 
 	class SqlScope: IAsyncDisposable {
@@ -10,7 +11,8 @@
 		public ValueTask DisposeAsync () =>
 			transaction?.DisposeAsync() ?? default;
 
-		public IManagedRwSqlTransaction GetOrCreateRwSqlTransaction (IServiceProvider serviceProvider) {
+		public IManagedRwSqlTransaction GetOrCreateRwSqlTransaction
+			(IServiceProvider serviceProvider, IsolationLevel isolationLevel) {
 			switch(transaction) {
 				case IManagedRwSqlTransaction rwTransaction:
 					return rwTransaction;
@@ -32,13 +34,14 @@
 					var dbProvider = serviceProvider.GetRequiredService<IDbProvider>();
 					IManagedRwSqlTransaction newTransaction;
 					using(NoSyncContext.On())
-						newTransaction = dbProvider.BeginRwSerializable().Wait();
+						newTransaction = dbProvider.BeginRw(isolationLevel).Wait();
 					transaction = newTransaction;
 					return newTransaction;
 			}
 		}
 
-		public IManagedRoSqlTransaction GetOrCreateRoSqlTransaction (IServiceProvider serviceProvider) {
+		public IManagedRoSqlTransaction GetOrCreateRoSqlTransaction
+			(IServiceProvider serviceProvider, IsolationLevel isolationLevel) {
 			switch(transaction) {
 				case IManagedRoSqlTransaction roTransaction:
 					return roTransaction;
@@ -60,19 +63,20 @@
 					var dbProvider = serviceProvider.GetRequiredService<IDbProvider>();
 					IManagedRoSqlTransaction newTransaction;
 					using(NoSyncContext.On())
-						newTransaction = dbProvider.BeginRoSerializable().Wait();
+						newTransaction = dbProvider.BeginRo(isolationLevel).Wait();
 					transaction = newTransaction;
 					return newTransaction;
 			}
 		}
 
-		public IManagedSqlTransaction GetOrCreateSqlTransaction (IServiceProvider serviceProvider) {
+		public IManagedSqlTransaction GetOrCreateSqlTransaction
+			(IServiceProvider serviceProvider, IsolationLevel isolationLevel) {
 			if(transaction is {} theTransaction)
 				return theTransaction;
 			else {
 				var dbProvider = serviceProvider.GetRequiredService<IDbProvider>();
 				using(NoSyncContext.On())
-					return transaction = dbProvider.BeginSerializable(SqlAccess.Ro).Wait();
+					return transaction = dbProvider.Begin(SqlAccess.Ro, isolationLevel).Wait();
 			}
 		}
 	}
