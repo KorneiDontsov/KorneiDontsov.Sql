@@ -11,7 +11,6 @@
 				.AddSingleton<ISqlProvider>(
 					sp => sp.GetRequiredService<IDbProvider>().UsingRwReadCommitted())
 				.AddScoped<SqlScopeState>()
-				.AddScoped<ISqlRetryEvent>(sp => sp.GetRequiredService<SqlScopeState>())
 				.AddScoped<SqlMiddleware>()
 				.AddScoped<IRwSqlTransaction>(
 					sp => {

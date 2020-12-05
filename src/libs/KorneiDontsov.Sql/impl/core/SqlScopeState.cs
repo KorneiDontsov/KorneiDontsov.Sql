@@ -1,20 +1,12 @@
 ﻿namespace KorneiDontsov.Sql {
 	using System;
+	using System.Threading.Tasks;
 
-	class SqlScopeState: ISqlRetryEvent {
+	class SqlScopeState: IAsyncDisposable {
 		public IManagedSqlTransaction? transaction;
 
-		event Action? EventRetry;
-
 		/// <inheritdoc />
-		public void AddHandler (Action handler) =>
-			EventRetry += handler;
-
-		/// <inheritdoc />
-		public void RemoveHandler (Action handler) =>
-			EventRetry -= handler;
-
-		public void InvokeRetryEvent () =>
-			EventRetry?.Invoke();
+		public ValueTask DisposeAsync () =>
+			transaction?.DisposeAsync() ?? default;
 	}
 }
