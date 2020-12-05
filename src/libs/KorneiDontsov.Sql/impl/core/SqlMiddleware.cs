@@ -5,6 +5,7 @@
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
 	using System;
+	using System.Collections.Generic;
 	using System.Threading.Tasks;
 	using static Microsoft.AspNetCore.Http.StatusCodes;
 
@@ -32,12 +33,19 @@
 				Status500InternalServerError,
 				environment.IsDevelopment() ? String.Format(devInfoFormat, args) : "Internal error occurred.");
 
-		async Task DoInvokeWithSqlScope
+		async Task InvokeWithSqlScope
 			(HttpContext context,
 			 RequestDelegate next,
 			 SqlScope sqlScope,
 			 IBeginSqlTransactionEndpointMetadata? beginMetadata,
-			 Func<Int32, Boolean> commitOn) {
+			 IReadOnlyList<ICommitOnEndpointMetadata>? commitOnEndpointMetadata) {
+			static Boolean ShouldCommit (Int32 statusCode, IReadOnlyList<ICommitOnEndpointMetadata> metadata) {
+				foreach(var datum in metadata)
+					if(statusCode == datum.statusCode)
+						return true;
+				return false;
+			}
+
 			try {
 				if(beginMetadata is {})
 					_ = beginMetadata.access switch {
@@ -56,10 +64,16 @@
 					};
 				try {
 					await next(context);
-					if(sqlScope.transaction is {} transaction && commitOn(context.Response.StatusCode))
-						await transaction.CommitAsync(context.RequestAborted);
+					await (sqlScope.transaction is {} transaction
+					       && (commitOnEndpointMetadata is null or {Count: 0}
+					           && context.Response.StatusCode is >= 200 and < 300
+					           || commitOnEndpointMetadata is {}
+					           && ShouldCommit(context.Response.StatusCode, commitOnEndpointMetadata))
+						? transaction.CommitAsync(context.RequestAborted)
+						: default);
 				}
-				catch(SqlException.ConflictFailure ex) when(ex.conflict is SqlConflict.SerializationFailure) {
+				catch(SqlException.ConflictFailure ex)
+					when(sqlScope.transaction is {} && ex.conflict is SqlConflict.SerializationFailure) {
 					var log =
 						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
 						+ "serialization failure.";
@@ -74,25 +88,6 @@
 			catch(OperationCanceledException) when(context.RequestAborted.IsCancellationRequested) { }
 		}
 
-		Task InvokeWhereDbMigrationResultIsOk (HttpContext context, RequestDelegate next, Endpoint? endpoint) {
-			if(context.RequestServices.GetService<SqlScope>() is {} sqlScope) {
-				var beginMetadata = endpoint?.Metadata.GetMetadata<IBeginSqlTransactionEndpointMetadata?>();
-				var commitOn =
-					endpoint?.Metadata.GetOrderedMetadata<ICommitOnEndpointMetadata>() is {Count: > 0} metadata
-						? new Func<Int32, Boolean>(
-							statusCode => {
-								foreach(var datum in metadata)
-									if(statusCode == datum.statusCode)
-										return true;
-								return false;
-							})
-						: statusCode => statusCode is >= 200 and < 300;
-				return DoInvokeWithSqlScope(context, next, sqlScope, beginMetadata, commitOn);
-			}
-			else
-				return next(context);
-		}
-
 		Task InvokeWhereDbMigrationResultIsNotOk (HttpContext context, DbMigrationResult? dbMigrationResult) =>
 			dbMigrationResult switch {
 				null =>
@@ -103,6 +98,7 @@
 							: "The service is starting."),
 				DbMigrationResult.Canceled =>
 					WriteInternalServerError(context, "Database migration is canceled. Service is stopping."),
+
 				DbMigrationResult.Failed failedResult =>
 					WriteInternalServerError(
 						context,
@@ -112,15 +108,23 @@
 
 		/// <inheritdoc />
 		public Task InvokeAsync (HttpContext context, RequestDelegate next) {
-			var endpoint = context.GetEndpoint();
+			var metadata = context.GetEndpoint()?.Metadata;
+
 			var dbMigrationResult =
 				dbMigrationState is {}
-				&& endpoint?.Metadata.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired is not false
+				&& metadata?.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired is not false
 					? dbMigrationState.result
 					: DbMigrationResult.ok;
-			return dbMigrationResult is DbMigrationResult.Ok
-				? InvokeWhereDbMigrationResultIsOk(context, next, endpoint)
-				: InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
+			if(dbMigrationResult is not DbMigrationResult.Ok)
+				return InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
+			else if(! (context.RequestServices.GetService<SqlScope>() is { }
+				sqlScope))
+				return next(context);
+			else {
+				var beginMetadata = metadata?.GetMetadata<IBeginSqlTransactionEndpointMetadata>();
+				var commitOnEndpointMetadata = metadata?.GetOrderedMetadata<ICommitOnEndpointMetadata>();
+				return InvokeWithSqlScope(context, next, sqlScope, beginMetadata, commitOnEndpointMetadata);
+			}
 		}
 	}
 }
