@@ -7,6 +7,7 @@ namespace KorneiDontsov.Sql.Migrations {
 	using System.Reflection;
 	using System.Threading;
 	using System.Threading.Tasks;
+	using static SqlConflict;
 	using static System.String;
 
 	class DbMigrationService: BackgroundService {
@@ -211,7 +212,7 @@ namespace KorneiDontsov.Sql.Migrations {
 
 								logger.LogInformation("Migration '{migrationId}' completed.", descriptor.id);
 							}
-							catch(SqlException.SerializationFailure ex) {
+							catch(SqlException.ConflictFailure ex) when(ex.conflict is SerializationFailure) {
 								var log = "Migration '{migrationId}' had serialization failure. Trying again.";
 								logger.LogInformation(ex, log, descriptor.id);
 							}

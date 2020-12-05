@@ -6,13 +6,13 @@
 		public static void Handle (Exception ex) {
 			switch(ex) {
 				case PostgresException pgEx:
-					switch(pgEx.SqlState) {
-						case PostgresErrorCodes.SerializationFailure:
-							throw new SqlException.SerializationFailure(ex.Message, pgEx);
-						case PostgresErrorCodes.UniqueViolation:
-							throw new SqlException.UniqueViolation(ex.Message, pgEx);
-					}
-					break;
+					throw pgEx.SqlState switch {
+						PostgresErrorCodes.SerializationFailure =>
+							new SqlException.ConflictFailure(SqlConflict.SerializationFailure, pgEx),
+						PostgresErrorCodes.UniqueViolation =>
+							new SqlException.ConflictFailure(SqlConflict.UniqueViolation, pgEx),
+						_ => new SqlException(innerException: pgEx)
+					};
 				case NpgsqlException _:
 					throw new SqlException(innerException: ex);
 			}

@@ -70,7 +70,7 @@
 						if(sqlScope.transaction is {} transaction && commitOn(context.Response.StatusCode))
 							await transaction.CommitAsync(context.RequestAborted);
 					}
-					catch(SqlException.SerializationFailure ex) {
+					catch(SqlException.ConflictFailure ex) when(ex.conflict is SqlConflict.SerializationFailure) {
 						var log =
 							"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
 							+ "serialization failure.";
