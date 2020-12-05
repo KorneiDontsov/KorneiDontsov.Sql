@@ -18,7 +18,9 @@
 						switch(services.transaction) {
 							case null:
 								var dbProvider = sp.GetRequiredService<IDbProvider>();
-								var newTransaction = dbProvider.BeginRwSerializable().GetAwaiter().GetResult();
+								IManagedRwSqlTransaction newTransaction;
+								using(NoSyncContext.On())
+									newTransaction = dbProvider.BeginRwSerializable().Wait();
 								services.transaction = newTransaction;
 								return newTransaction;
 
@@ -32,7 +34,8 @@
 								throw new InvalidOperationException(msg);
 
 							case {} transaction:
-								transaction.SetRwAsync().AsTask().GetAwaiter().GetResult();
+								using(NoSyncContext.On())
+									transaction.SetRwAsync().Wait();
 								var transactionDecorator = new RwSqlTransactionDecorator(transaction);
 								services.transaction = transactionDecorator;
 								return transactionDecorator;
@@ -44,7 +47,9 @@
 						switch(services.transaction) {
 							case null:
 								var dbProvider = sp.GetRequiredService<IDbProvider>();
-								var newTransaction = dbProvider.BeginRoSerializable().GetAwaiter().GetResult();
+								IManagedRoSqlTransaction newTransaction;
+								using(NoSyncContext.On())
+									newTransaction = dbProvider.BeginRoSerializable().Wait();
 								services.transaction = newTransaction;
 								return newTransaction;
 
@@ -58,7 +63,8 @@
 								throw new InvalidOperationException(msg);
 
 							case {} transaction:
-								transaction.SetRoAsync().AsTask().GetAwaiter().GetResult();
+								using(NoSyncContext.On())
+									transaction.SetRoAsync().Wait();
 								var transactionDecorator = new RoSqlTransactionDecorator(transaction);
 								services.transaction = transactionDecorator;
 								return transactionDecorator;
@@ -71,7 +77,9 @@
 							return transaction;
 						else {
 							var dbProvider = sp.GetRequiredService<IDbProvider>();
-							var newTransaction = dbProvider.BeginSerializable(SqlAccess.Ro).GetAwaiter().GetResult();
+							IManagedSqlTransaction newTransaction;
+							using(NoSyncContext.On())
+								newTransaction = dbProvider.BeginSerializable(SqlAccess.Ro).Wait();
 							services.transaction = newTransaction;
 							return newTransaction;
 						}
