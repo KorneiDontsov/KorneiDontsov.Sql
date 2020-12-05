@@ -1,4 +1,4 @@
-﻿namespace KorneiDontsov.Sql.Postgres.Example.DbMigrations {
+﻿namespace KorneiDontsov.Sql.Postgres.Example.Posts {
 	using KorneiDontsov.Sql.Migrations;
 	using System.Threading;
 	using System.Threading.Tasks;

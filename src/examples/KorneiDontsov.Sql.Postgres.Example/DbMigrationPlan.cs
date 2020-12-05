@@ -1,5 +1,6 @@
-﻿namespace KorneiDontsov.Sql.Postgres.Example.DbMigrations {
+﻿namespace KorneiDontsov.Sql.Postgres.Example {
 	using KorneiDontsov.Sql.Migrations;
+	using KorneiDontsov.Sql.Postgres.Example.Posts;
 
 	public class DbMigrationPlan: IDbMigrationPlan {
 		/// <inheritdoc />

@@ -1,5 +1,4 @@
 namespace KorneiDontsov.Sql.Postgres.Example {
-	using KorneiDontsov.Sql.Postgres.Example.DbMigrations;
 	using Microsoft.AspNetCore.Builder;
 	using Microsoft.AspNetCore.Hosting;
 	using Microsoft.Extensions.DependencyInjection;
@@ -7,18 +6,15 @@ namespace KorneiDontsov.Sql.Postgres.Example {
 
 	public class Startup {
 		public void ConfigureServices (IServiceCollection services) {
-			services
-				.AddPostgres()
-				.AddPostgresMigration<DbMigrationPlan>();
+			services.AddPostgres().AddPostgresMigration<DbMigrationPlan>();
 			services.AddControllers();
 			services.AddHealthChecks();
 		}
 
-		public void Configure (IApplicationBuilder webApp, IWebHostEnvironment env) {
-			if(env.IsDevelopment()) webApp.UseDeveloperExceptionPage();
+		public void Configure (IApplicationBuilder app, IWebHostEnvironment env) {
+			if(env.IsDevelopment()) app.UseDeveloperExceptionPage();
 
-			webApp
-				.UseRouting()
+			app.UseRouting()
 				.UseSql()
 				.UseEndpoints(
 					endpoints => {
