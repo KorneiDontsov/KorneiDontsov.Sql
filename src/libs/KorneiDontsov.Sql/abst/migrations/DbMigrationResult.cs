@@ -4,9 +4,9 @@
 	public abstract class DbMigrationResult {
 		DbMigrationResult () { }
 
-		public sealed class Succeeded: DbMigrationResult { }
+		public sealed class Ok: DbMigrationResult { }
 
-		public static Succeeded succeeded { get; } = new Succeeded();
+		public static Ok ok { get; } = new Ok();
 
 		public sealed class Failed: DbMigrationResult {
 			public String info { get; }

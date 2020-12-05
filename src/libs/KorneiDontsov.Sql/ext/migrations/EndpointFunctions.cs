@@ -18,7 +18,7 @@
 			else {
 				var dbMigrationResult = await dbMigrationState.WhenCompleted(context.RequestAborted);
 				switch(dbMigrationResult) {
-					case DbMigrationResult.Succeeded _:
+					case DbMigrationResult.Ok _:
 						context.Response.StatusCode = StatusCodes.Status200OK;
 						context.Response.ContentType = MediaTypeNames.Text.Plain;
 						await context.Response.WriteAsync("Migrated");

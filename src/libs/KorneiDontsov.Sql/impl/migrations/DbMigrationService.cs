@@ -229,7 +229,7 @@ namespace KorneiDontsov.Sql.Migrations {
 						else {
 							logger.LogInformation("Database migration completed.");
 
-							state.whenCompleted.SetResult(DbMigrationResult.succeeded);
+							state.whenCompleted.SetResult(DbMigrationResult.ok);
 							break;
 						}
 					}
