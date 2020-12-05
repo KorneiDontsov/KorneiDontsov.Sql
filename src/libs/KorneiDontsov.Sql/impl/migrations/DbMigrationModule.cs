@@ -2,8 +2,7 @@
 	using Microsoft.Extensions.DependencyInjection;
 
 	public static class DbMigrationModule {
-		public static IServiceCollection AddDbMigration
-			<TProvider, TPlan> (this IServiceCollection services)
+		public static IServiceCollection AddDbMigration<TProvider, TPlan> (this IServiceCollection services)
 			where TProvider: class, IDbMigrationProvider
 			where TPlan: class, IDbMigrationPlan =>
 			services

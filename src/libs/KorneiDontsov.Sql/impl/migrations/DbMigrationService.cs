@@ -10,7 +10,7 @@ namespace KorneiDontsov.Sql.Migrations {
 	using static SqlConflict;
 	using static System.String;
 
-	class DbMigrationService: BackgroundService {
+	sealed class DbMigrationService: BackgroundService {
 		DbMigrationState state { get; }
 		IDbProvider dbProvider { get; }
 		IDbMigrationProvider dbMigrationProvider { get; }

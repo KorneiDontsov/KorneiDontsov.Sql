@@ -46,7 +46,6 @@
 		}
 
 		// ReSharper disable once MethodOverloadWithOptionalParameter
-
 		public SqlQueryBuilder With
 			(String name,
 			 Object? value = null,

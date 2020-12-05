@@ -5,7 +5,7 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	class RwSqlTransactionDecorator: IManagedRwSqlTransaction {
+	sealed class RwSqlTransactionDecorator: IManagedRwSqlTransaction {
 		readonly IManagedSqlTransaction transaction;
 
 		public RwSqlTransactionDecorator (IManagedSqlTransaction transaction) =>

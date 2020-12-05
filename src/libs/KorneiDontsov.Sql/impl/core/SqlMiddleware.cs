@@ -9,7 +9,7 @@
 	using System.Threading.Tasks;
 	using static Microsoft.AspNetCore.Http.StatusCodes;
 
-	class SqlMiddleware: IMiddleware {
+	sealed class SqlMiddleware: IMiddleware {
 		IHostEnvironment environment { get; }
 		ILogger logger { get; }
 		IDbMigrationState? dbMigrationState { get; }

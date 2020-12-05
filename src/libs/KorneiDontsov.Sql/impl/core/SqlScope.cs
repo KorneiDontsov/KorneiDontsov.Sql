@@ -4,7 +4,7 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	class SqlScope: IAsyncDisposable {
+	sealed class SqlScope: IAsyncDisposable {
 		readonly IDbProvider dbProvider;
 
 		public IManagedSqlTransaction? transaction;

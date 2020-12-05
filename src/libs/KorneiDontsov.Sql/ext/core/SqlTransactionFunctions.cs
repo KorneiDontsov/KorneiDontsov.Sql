@@ -77,9 +77,9 @@
 						throw new ArgumentException(
 							"Snapshot isolation level cannot be set by this method.",
 							nameof(transaction)),
-					IsolationLevel.Chaos =>
+					_ =>
 						throw new ArgumentException(
-							"Chaos isolation level is not part of SQL standard.",
+							$"Isolation level {isolationLevel} is not part of SQL standard.",
 							nameof(transaction))
 				};
 			return transaction.ExecuteAsync(sql, ct);

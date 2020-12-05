@@ -3,8 +3,7 @@
 
 	public static class DbMigrationConnectionFunctions {
 		public static IDbMigrationCollection Add<TMigration>
-			(this IDbMigrationCollection migrations, params Object[] parameters)
-			where TMigration: IDbMigration {
+			(this IDbMigrationCollection migrations, params Object[] parameters) where TMigration: IDbMigration {
 			migrations.Add(typeof(TMigration), parameters);
 			return migrations;
 		}
