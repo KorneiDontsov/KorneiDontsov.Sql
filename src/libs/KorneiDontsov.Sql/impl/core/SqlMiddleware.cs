@@ -39,48 +39,37 @@
 			 IBeginSqlTransactionEndpointMetadata? beginMetadata,
 			 Func<Int32, Boolean> commitOn) {
 			try {
-				var createdTransaction =
-					beginMetadata is null
-						? null
-						: beginMetadata.access switch {
-							SqlAccess.Rw =>
-								await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
-									beginMetadata.isolationLevel,
-									context.RequestAborted),
-							SqlAccess.Ro =>
-								await sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(
-									beginMetadata.isolationLevel,
-									context.RequestAborted),
-							null =>
-								await sqlScope.GetOrCreateOrUpgradeSqlTransaction(
-									beginMetadata.isolationLevel,
-									context.RequestAborted)
-						};
-				if(createdTransaction?.initialIsolationLevel != beginMetadata?.isolationLevel) {
-					var log =
-						"Failed to begin {IsolationLevel} transaction, because the request scope already has "
-						+ "{ActualIsolationLevel} transaction.";
-					logger.LogCritical(log, beginMetadata!.isolationLevel, createdTransaction!.initialIsolationLevel);
-
-					await WriteInternalServerError(context, "SQL Isolation level conflict error.");
+				if(beginMetadata is {})
+					_ = beginMetadata.access switch {
+						SqlAccess.Rw =>
+							await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted),
+						SqlAccess.Ro =>
+							await sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted),
+						null =>
+							await sqlScope.GetOrCreateSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted)
+					};
+				try {
+					await next(context);
+					if(sqlScope.transaction is {} transaction && commitOn(context.Response.StatusCode))
+						await transaction.CommitAsync(context.RequestAborted);
 				}
-				else
-					try {
-						await next(context);
-						if(sqlScope.transaction is {} transaction && commitOn(context.Response.StatusCode))
-							await transaction.CommitAsync(context.RequestAborted);
-					}
-					catch(SqlException.ConflictFailure ex) when(ex.conflict is SqlConflict.SerializationFailure) {
-						var log =
-							"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
-							+ "serialization failure.";
-						logger.LogWarning(
-							ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+				catch(SqlException.ConflictFailure ex) when(ex.conflict is SqlConflict.SerializationFailure) {
+					var log =
+						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
+						+ "serialization failure.";
+					logger.LogWarning(
+						ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
 
-						await context.WriteTextResponse(
-							Status409Conflict,
-							"Data access conflict occurred. Try again.");
-					}
+					await context.WriteTextResponse(
+						Status409Conflict,
+						"Data access conflict occurred. Try again.");
+				}
 			}
 			catch(OperationCanceledException) when(context.RequestAborted.IsCancellationRequested) { }
 		}

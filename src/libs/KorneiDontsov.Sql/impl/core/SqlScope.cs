@@ -78,7 +78,7 @@
 					UpgradeToRoSqlTransaction(baseTransaction, ct)
 			};
 
-		public ValueTask<IManagedSqlTransaction> GetOrCreateOrUpgradeSqlTransaction
+		public ValueTask<IManagedSqlTransaction> GetOrCreateSqlTransaction
 			(IsolationLevel isolationLevel, CancellationToken ct = default) =>
 			transaction switch {
 				{} anyTransaction => new ValueTask<IManagedSqlTransaction>(anyTransaction),

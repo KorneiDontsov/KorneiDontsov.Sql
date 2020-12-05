@@ -25,7 +25,7 @@
 					sqlScope =>
 						sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(defaultIsolationLevel).Wait())
 				.AddSqlScoped<ISqlTransaction>(
-					sqlScope => sqlScope.GetOrCreateOrUpgradeSqlTransaction(defaultIsolationLevel).Wait());
+					sqlScope => sqlScope.GetOrCreateSqlTransaction(defaultIsolationLevel).Wait());
 
 		public static IApplicationBuilder UseSql (this IApplicationBuilder webApp) =>
 			webApp.UseMiddleware<SqlMiddleware>();
