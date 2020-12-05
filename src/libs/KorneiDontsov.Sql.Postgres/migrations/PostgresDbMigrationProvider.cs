@@ -1,7 +1,7 @@
 ﻿namespace KorneiDontsov.Sql.Postgres {
-	using JetBrains.Annotations;
 	using KorneiDontsov.Sql.Migrations;
 	using System;
+	using System.Diagnostics.CodeAnalysis;
 	using System.Threading;
 	using System.Threading.Tasks;
 
@@ -37,7 +37,7 @@
 			return transaction;
 		}
 
-		[UsedImplicitly(ImplicitUseTargetFlags.Members)]
+		[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Local")]
 		class MigrationRow {
 			public Int32 index { get; set; }
 
