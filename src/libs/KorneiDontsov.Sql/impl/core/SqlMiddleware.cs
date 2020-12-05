@@ -70,7 +70,8 @@
 					await next(context);
 					await (sqlScope.transaction is {} transaction
 					       && metadata?.GetOrderedMetadata<ICommitOnEndpointMetadata>() switch {
-						       null or {Count: 0} => context.Response.StatusCode is >= 200 and < 300,
+						       null => context.Response.StatusCode >= 200 && context.Response.StatusCode < 300,
+						       {Count: 0} => context.Response.StatusCode >= 200 && context.Response.StatusCode < 300,
 						       {} commitOnMetadata => ShouldCommit(context.Response.StatusCode, commitOnMetadata)
 					       }
 						? transaction.CommitAsync(context.RequestAborted)
@@ -79,7 +80,8 @@
 				catch(SqlException.ConflictFailure ex)
 					when(sqlScope.transaction is {}
 					     && metadata?.GetOrderedMetadata<IConflictOnEndpointMetadata>() switch {
-						     null or {Count: 0} => ex.conflict is SqlConflict.SerializationFailure,
+						     null => ex.conflict is SqlConflict.SerializationFailure,
+						     {Count: 0} => ex.conflict is SqlConflict.SerializationFailure,
 						     {} conflictOnMetadata => ShouldConflict(ex.conflict, conflictOnMetadata)
 					     }) {
 					var log =
@@ -104,7 +106,7 @@
 						environment.IsDevelopment()
 							? "The service is migrating database. It takes time."
 							: "The service is starting."),
-				DbMigrationResult.Canceled =>
+				DbMigrationResult.Canceled _ =>
 					WriteInternalServerError(context, "Database migration is canceled. Service is stopping."),
 
 				DbMigrationResult.Failed failedResult =>
@@ -120,10 +122,10 @@
 
 			var dbMigrationResult =
 				dbMigrationState is {}
-				&& metadata?.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired is not false
+				&& metadata?.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired != false
 					? dbMigrationState.result
 					: DbMigrationResult.ok;
-			if(dbMigrationResult is not DbMigrationResult.Ok)
+			if(! (dbMigrationResult is DbMigrationResult.Ok))
 				return InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
 			else if(! (context.RequestServices.GetService<SqlScope>() is { } sqlScope))
 				return next(context);

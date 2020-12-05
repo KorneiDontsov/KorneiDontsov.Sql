@@ -59,7 +59,7 @@
 					new ValueTask<IManagedRwSqlTransaction>(rwTransaction),
 				null =>
 					CreateRwSqlTransaction(isolationLevel, ct),
-				IManagedRoSqlTransaction =>
+				IManagedRoSqlTransaction _ =>
 					throw new InvalidOperationException("Not allowed to change read-only access to read-write."),
 				{} baseTransaction =>
 					UpgradeToRwSqlTransaction(baseTransaction, ct)
@@ -72,7 +72,7 @@
 					new ValueTask<IManagedRoSqlTransaction>(roTransaction),
 				null =>
 					CreateRoSqlTransaction(isolationLevel, ct),
-				IManagedRwSqlTransaction =>
+				IManagedRwSqlTransaction _ =>
 					throw new InvalidOperationException("Not allowed to change read-write access to read-only."),
 				{} baseTransaction =>
 					UpgradeToRoSqlTransaction(baseTransaction, ct)
