@@ -54,7 +54,7 @@
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		void MustNotBeDisposed () {
-			if(isDisposedFlag is not 0) ThrowDisposed();
+			if(isDisposedFlag != 0) ThrowDisposed();
 		}
 
 		SpinLock commitLock = new SpinLock();
@@ -106,10 +106,7 @@
 			try {
 				await npgsqlTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 
 			var locked = false;
 			try {
@@ -135,10 +132,7 @@
 			try {
 				await npgsqlTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		CommandDefinition CreateCommand
@@ -180,13 +174,8 @@
 					throw new SqlException.AssertionFailure(msg);
 				}
 			}
-			catch(SqlException) {
-				throw;
-			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(SqlException) { throw; }
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -201,10 +190,7 @@
 			try {
 				return await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -219,10 +205,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -237,10 +220,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -256,10 +236,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -275,10 +252,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -294,10 +268,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -313,10 +284,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -332,10 +300,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -351,10 +316,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -369,10 +331,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -387,10 +346,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -405,10 +361,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -424,10 +377,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -442,10 +392,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -460,10 +407,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -478,10 +422,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -497,10 +438,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -515,10 +453,7 @@
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -533,10 +468,7 @@
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) {
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
 		}
 	}
 }

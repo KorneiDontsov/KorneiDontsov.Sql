@@ -5,7 +5,7 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	class PostgresDbMigrationProvider: IDbMigrationProvider {
+	sealed class PostgresDbMigrationProvider: IDbMigrationProvider {
 		IDbProvider dbProvider { get; }
 
 		public PostgresDbMigrationProvider (IDbProvider dbProvider) =>

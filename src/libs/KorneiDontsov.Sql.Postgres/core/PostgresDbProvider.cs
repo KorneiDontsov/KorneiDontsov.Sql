@@ -8,7 +8,7 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	class PostgresDbProvider: IDbProvider {
+	sealed class PostgresDbProvider: IDbProvider {
 		PostgresDbProviderSettings settings { get; }
 		IHostApplicationLifetime appLifetime { get; }
 		ILogger logger { get; }
@@ -112,25 +112,24 @@
 			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
-			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction =
+				NpgsqlTransaction npgsqlTransaction =
 					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
 						.ConfigureAwait(false);
-			}
-			catch(Exception ex) {
-				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
 
-			var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-			var transaction =
-				new PostgresTransaction(npgsqlConnection, npgsqlTransaction, access, isolationLevel, timeout);
+				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
+				var transaction =
+					new PostgresTransaction(npgsqlConnection, npgsqlTransaction, access, isolationLevel, timeout);
 
-			await transaction.SetAccessAsync(access, cancellationToken).ConfigureAwait(false);
-			return transaction;
+				await transaction.SetAccessAsync(access, cancellationToken).ConfigureAwait(false);
+				npgsqlConnection = null;
+				return transaction;
+			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
+			finally {
+				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
+			}
 		}
 
 		/// <inheritdoc />
@@ -141,25 +140,24 @@
 			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
-			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction =
+				NpgsqlTransaction npgsqlTransaction =
 					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
 						.ConfigureAwait(false);
-			}
-			catch(Exception ex) {
-				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
 
-			var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-			var transaction =
-				new PostgresRwTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
+				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
+				var transaction =
+					new PostgresRwTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-			await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
-			return transaction;
+				await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
+				npgsqlConnection = null;
+				return transaction;
+			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
+			finally {
+				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
+			}
 		}
 
 		/// <inheritdoc />
@@ -170,25 +168,24 @@
 			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
-			NpgsqlTransaction npgsqlTransaction;
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				npgsqlTransaction =
+				NpgsqlTransaction npgsqlTransaction =
 					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
 						.ConfigureAwait(false);
-			}
-			catch(Exception ex) {
-				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
-				NpgsqlExceptions.Handle(ex);
-				throw;
-			}
 
-			var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-			var transaction =
-				new PostgresRoTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
+				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
+				var transaction =
+					new PostgresRoTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-			await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
-			return transaction;
+				await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
+				npgsqlConnection = null;
+				return transaction;
+			}
+			catch(Exception ex) when(NpgsqlExceptions.Match(ex) is {} sqlEx) { throw sqlEx; }
+			finally {
+				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
+			}
 		}
 	}
 }

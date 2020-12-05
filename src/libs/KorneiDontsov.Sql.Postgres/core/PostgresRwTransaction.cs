@@ -3,7 +3,7 @@
 	using System;
 	using System.Data;
 
-	class PostgresRwTransaction: PostgresTransaction, IManagedRwSqlTransaction {
+	sealed class PostgresRwTransaction: PostgresTransaction, IManagedRwSqlTransaction {
 		public PostgresRwTransaction
 			(NpgsqlConnection npgsqlConnection,
 			 NpgsqlTransaction npgsqlTransaction,

@@ -3,7 +3,7 @@
 	using Microsoft.Extensions.DependencyInjection;
 	using System;
 
-	class PostgresDbProviderSettings {
+	sealed class PostgresDbProviderSettings {
 		public String database { get; }
 		public String host { get; }
 		public Int32 port { get; }
