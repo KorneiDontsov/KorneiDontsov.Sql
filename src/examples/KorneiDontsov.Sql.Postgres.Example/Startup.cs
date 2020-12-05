@@ -1,5 +1,4 @@
 namespace KorneiDontsov.Sql.Postgres.Example {
-	using KorneiDontsov.Sql.Migrations;
 	using KorneiDontsov.Sql.Postgres.Example.DbMigrations;
 	using Microsoft.AspNetCore.Builder;
 	using Microsoft.AspNetCore.Hosting;
@@ -25,7 +24,6 @@ namespace KorneiDontsov.Sql.Postgres.Example {
 					endpoints => {
 						endpoints.MapControllers();
 						endpoints.MapHealthChecks("/health").WithoutDbMigration();
-						endpoints.MapDbMigrationResultLongPolls("/db-migration-result");
 					});
 		}
 	}

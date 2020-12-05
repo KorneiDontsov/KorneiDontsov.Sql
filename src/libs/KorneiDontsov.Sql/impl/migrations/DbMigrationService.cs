@@ -9,7 +9,7 @@ namespace KorneiDontsov.Sql.Migrations {
 	using System.Threading.Tasks;
 	using static System.String;
 
-	class DbMigrationService: IHostedService, IDisposable {
+	class DbMigrationService: BackgroundService {
 		DbMigrationState state { get; }
 		IDbProvider dbProvider { get; }
 		IDbMigrationProvider dbMigrationProvider { get; }
@@ -186,28 +186,28 @@ namespace KorneiDontsov.Sql.Migrations {
 			}
 		}
 
-		/// <exception cref = "OperationCanceledException" />
-		async void BeginExecute (TaskCompletionSource<Object?> whenCompleted, CancellationToken cancellationToken) {
+		/// <inheritdoc />
+		protected async override Task ExecuteAsync (CancellationToken stoppingToken) {
 			try {
 				var (schema, descriptors) = Descript(migrationPlan);
-				await using(await dbMigrationProvider.Lock(schema, cancellationToken))
+				await using(await dbMigrationProvider.Lock(schema, stoppingToken))
 					while(true) {
-						await using var transaction = await dbProvider.BeginRwSerializable(cancellationToken);
+						await using var transaction = await dbProvider.BeginRwSerializable(stoppingToken);
 						var descriptor = await
-							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, cancellationToken);
+							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, stoppingToken);
 						if(descriptor is {})
 							try {
 								var startLog = "Run migration '{migrationId}' ({current}/{total}).";
 								logger.LogInformation(startLog, descriptor.id, descriptor.index + 1, descriptors.count);
 
-								await MigrateAsync(transaction, descriptor, cancellationToken);
+								await MigrateAsync(transaction, descriptor, stoppingToken);
 								await dbMigrationProvider.SetLastMigrationInfo(
 									transaction,
 									schema,
 									descriptor.index,
 									descriptor.id,
-									cancellationToken);
-								await transaction.CommitAsync(cancellationToken);
+									stoppingToken);
+								await transaction.CommitAsync(stoppingToken);
 
 								logger.LogInformation("Migration '{migrationId}' completed.", descriptor.id);
 							}
@@ -216,11 +216,11 @@ namespace KorneiDontsov.Sql.Migrations {
 								logger.LogInformation(ex, log, descriptor.id);
 							}
 							catch(SqlException ex) {
-								var log = "Migration '{migrationId}' failed. Application is going to be stopped.";
+								var log = "Migration '{migrationId}' failed. Service will be stopped.";
 								logger.LogCritical(ex, log, descriptor.id);
 
 								var failureInfo = $"Migration '{descriptor.id}' failed.\n{ex}";
-								state.whenCompleted.SetResult(new DbMigrationResult.Failed(failureInfo));
+								state.Complete(new DbMigrationResult.Failed(failureInfo));
 
 								Environment.ExitCode = 1;
 								appLifetime.StopApplication();
@@ -228,47 +228,19 @@ namespace KorneiDontsov.Sql.Migrations {
 							}
 						else {
 							logger.LogInformation("Database migration completed.");
-
-							state.whenCompleted.SetResult(DbMigrationResult.ok);
+							state.Complete(DbMigrationResult.ok);
 							break;
 						}
 					}
 			}
 			catch(OperationCanceledException) {
-				state.whenCompleted.SetResult(DbMigrationResult.canceled);
+				state.Complete(DbMigrationResult.canceled);
 			}
-			finally {
-				whenCompleted.SetResult(null);
+			catch(Exception ex) {
+				logger.LogCritical(ex, "Unhandled exception occurred in database migration. Service will be stopped.");
+				Environment.ExitCode = 1;
+				appLifetime.StopApplication();
 			}
-		}
-
-		CancellationTokenSource cancellation { get; } =
-			new CancellationTokenSource();
-
-		TaskCompletionSource<Object?>? whenExecuted;
-
-		/// <inheritdoc />
-		public Task StartAsync (CancellationToken cancellationToken) {
-			whenExecuted = new TaskCompletionSource<Object?>(TaskCreationOptions.RunContinuationsAsynchronously);
-			BeginExecute(whenExecuted, cancellationToken);
-			return Task.CompletedTask;
-		}
-
-		/// <inheritdoc />
-		public async Task StopAsync (CancellationToken cancellationToken) {
-			if(whenExecuted is {})
-				try {
-					cancellation.Cancel();
-				}
-				finally {
-					await Task.WhenAny(whenExecuted.Task, Task.Delay(Timeout.Infinite, cancellationToken));
-				}
-		}
-
-		public void Dispose () {
-			cancellation.Cancel();
-			cancellation.Dispose();
-			state.whenCompleted.TrySetCanceled();
 		}
 	}
 }

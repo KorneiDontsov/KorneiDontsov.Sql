@@ -34,55 +34,58 @@
 				Status500InternalServerError,
 				environment.IsDevelopment() ? String.Format(devInfoFormat, args) : "Internal error occurred.");
 
-		async Task InvokeWithSqlScope
+		async Task DoInvokeWithSqlScope
 			(HttpContext context,
 			 RequestDelegate next,
 			 SqlScope sqlScope,
 			 IBeginSqlTransactionEndpointMetadata? beginMetadata,
 			 ImmutableHashSet<Int32> commitOnStatusCodes) {
-			var createdTransaction =
-				beginMetadata is null
-					? null
-					: beginMetadata.access switch {
-						SqlAccess.Rw =>
-							await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
-								beginMetadata.isolationLevel,
-								context.RequestAborted),
-						SqlAccess.Ro =>
-							await sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(
-								beginMetadata.isolationLevel,
-								context.RequestAborted),
-						null =>
-							await sqlScope.GetOrCreateOrUpgradeSqlTransaction(
-								beginMetadata.isolationLevel,
-								context.RequestAborted)
-					};
-			if(createdTransaction?.initialIsolationLevel != beginMetadata?.isolationLevel) {
-				var log =
-					"Failed to begin {IsolationLevel} transaction, because the request scope already has "
-					+ "{ActualIsolationLevel} transaction.";
-				logger.LogCritical(log, beginMetadata!.isolationLevel, createdTransaction!.initialIsolationLevel);
-
-				await WriteInternalServerError(context, "SQL Isolation level conflict error.");
-			}
-			else
-				try {
-					await next(context);
-					if(sqlScope.transaction is {} transaction
-					   && commitOnStatusCodes.Contains(context.Response.StatusCode))
-						await transaction.CommitAsync(context.RequestAborted);
-				}
-				catch(SqlException.SerializationFailure ex) {
+			try {
+				var createdTransaction =
+					beginMetadata is null
+						? null
+						: beginMetadata.access switch {
+							SqlAccess.Rw =>
+								await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
+									beginMetadata.isolationLevel,
+									context.RequestAborted),
+							SqlAccess.Ro =>
+								await sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(
+									beginMetadata.isolationLevel,
+									context.RequestAborted),
+							null =>
+								await sqlScope.GetOrCreateOrUpgradeSqlTransaction(
+									beginMetadata.isolationLevel,
+									context.RequestAborted)
+						};
+				if(createdTransaction?.initialIsolationLevel != beginMetadata?.isolationLevel) {
 					var log =
-						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
-						+ "serialization failure.";
-					logger.LogWarning(
-						ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+						"Failed to begin {IsolationLevel} transaction, because the request scope already has "
+						+ "{ActualIsolationLevel} transaction.";
+					logger.LogCritical(log, beginMetadata!.isolationLevel, createdTransaction!.initialIsolationLevel);
 
-					await context.WriteTextResponse(
-						Status409Conflict,
-						"Data access conflict occurred. Try again.");
+					await WriteInternalServerError(context, "SQL Isolation level conflict error.");
 				}
+				else
+					try {
+						await next(context);
+						if(sqlScope.transaction is {} transaction
+						   && commitOnStatusCodes.Contains(context.Response.StatusCode))
+							await transaction.CommitAsync(context.RequestAborted);
+					}
+					catch(SqlException.SerializationFailure ex) {
+						var log =
+							"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
+							+ "serialization failure.";
+						logger.LogWarning(
+							ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+
+						await context.WriteTextResponse(
+							Status409Conflict,
+							"Data access conflict occurred. Try again.");
+					}
+			}
+			catch(OperationCanceledException) when(context.RequestAborted.IsCancellationRequested) { }
 		}
 
 		Task InvokeWhereDbMigrationResultIsOk (HttpContext context, RequestDelegate next, Endpoint? endpoint) {
@@ -103,13 +106,19 @@
 				return WriteInternalServerError(context, "Read-write SQL transaction configuration error.");
 			}
 			else if(context.RequestServices.GetService<SqlScope>() is {} sqlScope)
-				return InvokeWithSqlScope(context, next, sqlScope, mbBeginMetadata, commitOnStatusCodes);
+				return DoInvokeWithSqlScope(context, next, sqlScope, mbBeginMetadata, commitOnStatusCodes);
 			else
 				return next(context);
 		}
 
-		Task DbMigrationResultIsNotOk (HttpContext context, DbMigrationResult dbMigrationResult) =>
+		Task InvokeWhereDbMigrationResultIsNotOk (HttpContext context, DbMigrationResult? dbMigrationResult) =>
 			dbMigrationResult switch {
+				null =>
+					context.WriteTextResponse(
+						Status503ServiceUnavailable,
+						environment.IsDevelopment()
+							? "The service is migrating database. It takes time."
+							: "The service is starting."),
 				DbMigrationResult.Canceled =>
 					WriteInternalServerError(context, "Database migration is canceled. Service is stopping."),
 				DbMigrationResult.Failed failedResult =>
@@ -120,17 +129,16 @@
 			};
 
 		/// <inheritdoc />
-		public async Task InvokeAsync (HttpContext context, RequestDelegate next) {
+		public Task InvokeAsync (HttpContext context, RequestDelegate next) {
 			var endpoint = context.GetEndpoint();
-			DbMigrationResult dbMigrationResult =
+			var dbMigrationResult =
 				dbMigrationState is {}
 				&& endpoint?.Metadata.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired is not false
-					? await dbMigrationState.WhenCompleted(context.RequestAborted)
+					? dbMigrationState.result
 					: DbMigrationResult.ok;
-			if(dbMigrationResult is DbMigrationResult.Ok)
-				await InvokeWhereDbMigrationResultIsOk(context, next, endpoint);
-			else
-				await DbMigrationResultIsNotOk(context, dbMigrationResult);
+			return dbMigrationResult is DbMigrationResult.Ok
+				? InvokeWhereDbMigrationResultIsOk(context, next, endpoint)
+				: InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
 		}
 	}
 }
