@@ -2,6 +2,7 @@
 	using System;
 	using System.Collections.Generic;
 	using System.Data;
+	using System.Diagnostics.CodeAnalysis;
 	using System.Threading;
 	using System.Threading.Tasks;
 
@@ -141,7 +142,7 @@
 			transaction.QueryFirstRow<T>(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
-		public ValueTask<dynamic> QueryFirstRowOrDefault
+		public ValueTask<dynamic?> QueryFirstRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -149,6 +150,7 @@
 			transaction.QueryFirstRowOrDefault(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public ValueTask<T> QueryFirstRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -173,7 +175,7 @@
 			transaction.QuerySingleRow<T>(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
-		public ValueTask<dynamic> QuerySingleRowOrDefault
+		public ValueTask<dynamic?> QuerySingleRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -181,6 +183,7 @@
 			transaction.QuerySingleRowOrDefault(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public ValueTask<T> QuerySingleRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,

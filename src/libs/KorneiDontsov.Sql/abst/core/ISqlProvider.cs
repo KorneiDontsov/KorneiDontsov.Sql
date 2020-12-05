@@ -2,6 +2,7 @@
 	using System;
 	using System.Collections.Generic;
 	using System.Data;
+	using System.Diagnostics.CodeAnalysis;
 	using System.Threading;
 	using System.Threading.Tasks;
 
@@ -127,7 +128,7 @@
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
-		ValueTask<dynamic> QueryFirstRowOrDefault
+		ValueTask<dynamic?> QueryFirstRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -135,6 +136,7 @@
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
+		[return: MaybeNull]
 		ValueTask<T> QueryFirstRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -159,7 +161,7 @@
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
-		ValueTask<dynamic> QuerySingleRowOrDefault
+		ValueTask<dynamic?> QuerySingleRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -167,6 +169,7 @@
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
+		[return: MaybeNull]
 		ValueTask<T> QuerySingleRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,

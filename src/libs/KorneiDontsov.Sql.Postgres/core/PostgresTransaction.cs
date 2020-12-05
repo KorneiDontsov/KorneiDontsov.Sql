@@ -5,6 +5,7 @@
 	using System.Collections.Generic;
 	using System.Collections.Immutable;
 	using System.Data;
+	using System.Diagnostics.CodeAnalysis;
 	using System.Runtime.CompilerServices;
 	using System.Threading;
 	using System.Threading.Tasks;
@@ -393,7 +394,7 @@
 		}
 
 		/// <inheritdoc />
-		public async ValueTask<dynamic> QueryFirstRowOrDefault
+		public async ValueTask<dynamic?> QueryFirstRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -411,6 +412,7 @@
 		}
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public async ValueTask<T> QueryFirstRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -465,7 +467,7 @@
 		}
 
 		/// <inheritdoc />
-		public async ValueTask<dynamic> QuerySingleRowOrDefault
+		public async ValueTask<dynamic?> QuerySingleRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -483,6 +485,7 @@
 		}
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public async ValueTask<T> QuerySingleRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
