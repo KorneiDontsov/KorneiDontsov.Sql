@@ -5,8 +5,6 @@
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
 	using System;
-	using System.Collections.Immutable;
-	using System.Linq;
 	using System.Threading.Tasks;
 	using static Microsoft.AspNetCore.Http.StatusCodes;
 
@@ -39,7 +37,7 @@
 			 RequestDelegate next,
 			 SqlScope sqlScope,
 			 IBeginSqlTransactionEndpointMetadata? beginMetadata,
-			 ImmutableHashSet<Int32> commitOnStatusCodes) {
+			 Func<Int32, Boolean> commitOn) {
 			try {
 				var createdTransaction =
 					beginMetadata is null
@@ -69,8 +67,7 @@
 				else
 					try {
 						await next(context);
-						if(sqlScope.transaction is {} transaction
-						   && commitOnStatusCodes.Contains(context.Response.StatusCode))
+						if(sqlScope.transaction is {} transaction && commitOn(context.Response.StatusCode))
 							await transaction.CommitAsync(context.RequestAborted);
 					}
 					catch(SqlException.SerializationFailure ex) {
@@ -89,24 +86,20 @@
 		}
 
 		Task InvokeWhereDbMigrationResultIsOk (HttpContext context, RequestDelegate next, Endpoint? endpoint) {
-			var mbBeginMetadata = endpoint?.Metadata.GetMetadata<IBeginSqlTransactionEndpointMetadata?>();
-			var commitOnStatusCodes =
-				endpoint?.Metadata.GetOrderedMetadata<ICommitOnEndpointMetadata>()
-					.Select(data => data.statusCode)
-					.ToImmutableHashSet()
-				?? ImmutableHashSet<Int32>.Empty;
-
-			if(mbBeginMetadata?.access is SqlAccess.Rw && commitOnStatusCodes.IsEmpty) {
-				var log =
-					"Denied to execute endpoint {requestMethod} {requestPath}: "
-					+ "endpoint requests read-write sql transaction to begin but it doesn't specify "
-					+ "commit conditions. Probably, one or more attributes [CommitOn] are missed.";
-				logger.LogCritical(log, context.Request.Method, context.Request.Path);
-
-				return WriteInternalServerError(context, "Read-write SQL transaction configuration error.");
+			if(context.RequestServices.GetService<SqlScope>() is {} sqlScope) {
+				var beginMetadata = endpoint?.Metadata.GetMetadata<IBeginSqlTransactionEndpointMetadata?>();
+				var commitOn =
+					endpoint?.Metadata.GetOrderedMetadata<ICommitOnEndpointMetadata>() is {Count: > 0} metadata
+						? new Func<Int32, Boolean>(
+							statusCode => {
+								foreach(var datum in metadata)
+									if(statusCode == datum.statusCode)
+										return true;
+								return false;
+							})
+						: statusCode => statusCode is >= 200 and < 300;
+				return DoInvokeWithSqlScope(context, next, sqlScope, beginMetadata, commitOn);
 			}
-			else if(context.RequestServices.GetService<SqlScope>() is {} sqlScope)
-				return DoInvokeWithSqlScope(context, next, sqlScope, mbBeginMetadata, commitOnStatusCodes);
 			else
 				return next(context);
 		}
