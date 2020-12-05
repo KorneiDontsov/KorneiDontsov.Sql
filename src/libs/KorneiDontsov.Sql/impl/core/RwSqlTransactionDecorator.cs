@@ -20,6 +20,24 @@
 			transaction.defaultQueryTimeout;
 
 		/// <inheritdoc />
+		public ValueTask DisposeAsync () =>
+			transaction.DisposeAsync();
+
+		/// <inheritdoc />
+		public void OnCommitted (Action action) => transaction.OnCommitted(action);
+
+		/// <inheritdoc />
+		public void OnCommitted (Func<ValueTask> action) => transaction.OnCommitted(action);
+
+		/// <inheritdoc />
+		public ValueTask CommitAsync (CancellationToken cancellationToken = default) =>
+			transaction.CommitAsync(cancellationToken);
+
+		/// <inheritdoc />
+		public ValueTask RollbackAsync (CancellationToken cancellationToken = default) =>
+			transaction.RollbackAsync(cancellationToken);
+
+		/// <inheritdoc />
 		public ValueTask ExecuteAsync
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -185,17 +203,5 @@
 			 Object? args = null,
 			 Int32? queryTimeout = null) =>
 			transaction.QueryScalar<T>(sql, cancellationToken, args, queryTimeout);
-
-		/// <inheritdoc />
-		public ValueTask DisposeAsync () =>
-			transaction.DisposeAsync();
-
-		/// <inheritdoc />
-		public ValueTask CommitAsync (CancellationToken cancellationToken = default) =>
-			transaction.CommitAsync(cancellationToken);
-
-		/// <inheritdoc />
-		public ValueTask RollbackAsync (CancellationToken cancellationToken = default) =>
-			transaction.RollbackAsync(cancellationToken);
 	}
 }

@@ -3,9 +3,12 @@
 	using Npgsql;
 	using System;
 	using System.Collections.Generic;
+	using System.Collections.Immutable;
 	using System.Data;
+	using System.Runtime.CompilerServices;
 	using System.Threading;
 	using System.Threading.Tasks;
+	using static System.Threading.Interlocked;
 
 	class PostgresTransaction: IManagedSqlTransaction {
 		NpgsqlConnection npgsqlConnection { get; }
@@ -34,19 +37,71 @@
 			this.defaultQueryTimeout = defaultQueryTimeout;
 		}
 
-		Boolean isDisposed;
+		volatile Int32 isDisposedFlag;
 
 		/// <inheritdoc />
 		public async ValueTask DisposeAsync () {
-			if(! isDisposed) {
-				isDisposed = true;
+			if(CompareExchange(ref isDisposedFlag, 1, 0) is 0) {
 				await npgsqlTransaction.DisposeAsync().ConfigureAwait(false);
 				await npgsqlConnection.DisposeAsync().ConfigureAwait(false);
 			}
 		}
 
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		void ThrowDisposed () =>
+			throw new ObjectDisposedException(nameof(PostgresTransaction));
+
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		void MustNotBeDisposed () {
+			if(isDisposedFlag is not 0) ThrowDisposed();
+		}
+
+		SpinLock commitLock = new SpinLock();
+		Boolean isCommitted;
+		ImmutableArray<Delegate> onCommittedActions = ImmutableArray<Delegate>.Empty;
+
+		[MethodImpl(MethodImplOptions.NoInlining)]
+		void ThrowAlreadyCommitted () =>
+			throw new InvalidOperationException("Already committed.");
+
+		void OnDoCommitted (Delegate action) {
+			var locked = false;
+			try {
+				commitLock.Enter(ref locked);
+
+				if(isCommitted) ThrowAlreadyCommitted();
+				onCommittedActions = onCommittedActions.Add(action);
+			}
+			finally {
+				if(locked) commitLock.Exit();
+			}
+		}
+
+		/// <inheritdoc />
+		public void OnCommitted (Action action) {
+			MustNotBeDisposed();
+			OnDoCommitted(action);
+		}
+
+		/// <inheritdoc />
+		public void OnCommitted (Func<ValueTask> action) {
+			MustNotBeDisposed();
+			OnDoCommitted(action);
+		}
+
+		static ValueTask InvokeAction (Delegate action) {
+			if(action is Action syncAction) {
+				syncAction();
+				return default;
+			}
+			else
+				return Unsafe.As<Func<ValueTask>>(action)();
+		}
+
 		/// <inheritdoc />
 		public async ValueTask CommitAsync (CancellationToken cancellationToken = default) {
+			MustNotBeDisposed();
+
 			try {
 				await npgsqlTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
@@ -54,10 +109,28 @@
 				NpgsqlExceptions.Handle(ex);
 				throw;
 			}
+
+			var locked = false;
+			try {
+				commitLock.Enter(ref locked);
+
+				isCommitted = true;
+			}
+			finally {
+				if(locked) commitLock.Exit();
+			}
+
+			try {
+				foreach(var onCommittedAction in onCommittedActions)
+					await InvokeAction(onCommittedAction).ConfigureAwait(false);
+			}
+			catch(Exception ex) { throw new SqlException.AfterCommitFailure(innerException: ex); }
 		}
 
 		/// <inheritdoc />
 		public async ValueTask RollbackAsync (CancellationToken cancellationToken = default) {
+			MustNotBeDisposed();
+
 			try {
 				await npgsqlTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 			}
@@ -83,6 +156,8 @@
 			 Object? args = null,
 			 Int32? queryTimeout = null,
 			 Affect affect = Affect.Any) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				var affectedRowsCount = await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
@@ -119,6 +194,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
@@ -135,6 +212,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd).ConfigureAwait(false);
@@ -151,6 +230,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync<T>(cmd).ConfigureAwait(false);
@@ -168,6 +249,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -185,6 +268,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -202,6 +287,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -219,6 +306,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -236,6 +325,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -253,6 +344,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
@@ -269,6 +362,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryFirstAsync(cmd).ConfigureAwait(false);
@@ -285,6 +380,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryFirstAsync<T>(cmd).ConfigureAwait(false);
@@ -301,6 +398,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync(cmd).ConfigureAwait(false);
@@ -317,6 +416,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync<T>(cmd).ConfigureAwait(false);
@@ -333,6 +434,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QuerySingleAsync(cmd).ConfigureAwait(false);
@@ -349,6 +452,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QuerySingleAsync<T>(cmd).ConfigureAwait(false);
@@ -365,6 +470,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync(cmd).ConfigureAwait(false);
@@ -381,6 +488,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync<T>(cmd).ConfigureAwait(false);
@@ -397,6 +506,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync(cmd).ConfigureAwait(false);
@@ -413,6 +524,8 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null) {
+			MustNotBeDisposed();
+
 			var cmd = CreateCommand(sql, cancellationToken, args, queryTimeout);
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync<T>(cmd).ConfigureAwait(false);
