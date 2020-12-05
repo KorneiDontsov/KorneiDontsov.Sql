@@ -10,19 +10,19 @@
 
 	class SqlMiddleware: IMiddleware {
 		IDbProvider dbProvider { get; }
-		SqlScopeState sqlScopeState { get; }
+		SqlScope sqlScope { get; }
 		IHostEnvironment environment { get; }
 		ILogger logger { get; }
 		IDbMigrationState? dbMigrationState { get; }
 
 		public SqlMiddleware
 			(IDbProvider dbProvider,
-			 SqlScopeState sqlScopeState,
+			 SqlScope sqlScope,
 			 IHostEnvironment environment,
 			 ILogger<SqlMiddleware> logger,
 			 IDbMigrationState? dbMigrationState = null) {
 			this.dbProvider = dbProvider;
-			this.sqlScopeState = sqlScopeState;
+			this.sqlScope = sqlScope;
 			this.environment = environment;
 			this.logger = logger;
 			this.dbMigrationState = dbMigrationState;
@@ -90,7 +90,7 @@
 						context.RequestAborted.ThrowIfCancellationRequested();
 
 						try {
-							sqlScopeState.transaction ??=
+							sqlScope.transaction ??=
 								mbBeginMetadata switch {
 									{ access: SqlAccess.Rw } =>
 										await dbProvider.BeginRw(mbBeginMetadata.isolationLevel),
@@ -103,7 +103,7 @@
 
 							await next(context);
 
-							if(sqlScopeState.transaction is {} transaction
+							if(sqlScope.transaction is {} transaction
 							   && mbCommitOnMetadata?.Contains(context.Response.StatusCode) is true)
 								await transaction.CommitAsync(context.RequestAborted);
 						}
