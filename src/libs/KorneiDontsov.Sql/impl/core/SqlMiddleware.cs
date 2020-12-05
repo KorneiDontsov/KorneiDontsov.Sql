@@ -34,12 +34,7 @@
 				environment.IsDevelopment() ? String.Format(devInfoFormat, args) : "Internal error occurred.");
 
 		async Task InvokeWithSqlScope
-			(HttpContext context,
-			 RequestDelegate next,
-			 SqlScope sqlScope,
-			 IBeginSqlTransactionEndpointMetadata? beginMetadata,
-			 IReadOnlyList<ICommitOnEndpointMetadata>? commitOnMetadata,
-			 IReadOnlyList<IConflictOnEndpointMetadata>? conflictOnMetadata) {
+			(HttpContext context, RequestDelegate next, SqlScope sqlScope, EndpointMetadataCollection? metadata) {
 			static Boolean ShouldCommit (Int32 statusCode, IReadOnlyList<ICommitOnEndpointMetadata> metadata) {
 				foreach(var datum in metadata)
 					if(statusCode == datum.statusCode)
@@ -56,7 +51,7 @@
 			}
 
 			try {
-				if(beginMetadata is {})
+				if(metadata?.GetMetadata<IBeginSqlTransactionEndpointMetadata>() is {} beginMetadata)
 					_ = beginMetadata.access switch {
 						SqlAccess.Rw =>
 							await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
@@ -74,15 +69,19 @@
 				try {
 					await next(context);
 					await (sqlScope.transaction is {} transaction
-					       && (commitOnMetadata is null or {Count: 0} && context.Response.StatusCode is >= 200 and < 300
-					           || commitOnMetadata is {} && ShouldCommit(context.Response.StatusCode, commitOnMetadata))
+					       && metadata?.GetOrderedMetadata<ICommitOnEndpointMetadata>() switch {
+						       null or {Count: 0} => context.Response.StatusCode is >= 200 and < 300,
+						       {} commitOnMetadata => ShouldCommit(context.Response.StatusCode, commitOnMetadata)
+					       }
 						? transaction.CommitAsync(context.RequestAborted)
 						: default);
 				}
 				catch(SqlException.ConflictFailure ex)
 					when(sqlScope.transaction is {}
-					     && (conflictOnMetadata is null or {Count: 0} && ex.conflict is SqlConflict.SerializationFailure
-					         || conflictOnMetadata is {} && ShouldConflict(ex.conflict, conflictOnMetadata))) {
+					     && metadata?.GetOrderedMetadata<IConflictOnEndpointMetadata>() switch {
+						     null or {Count: 0} => ex.conflict is SqlConflict.SerializationFailure,
+						     {} conflictOnMetadata => ShouldConflict(ex.conflict, conflictOnMetadata)
+					     }) {
 					var log =
 						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
 						+ "serialization failure.";
@@ -126,15 +125,10 @@
 					: DbMigrationResult.ok;
 			if(dbMigrationResult is not DbMigrationResult.Ok)
 				return InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
-			else if(! (context.RequestServices.GetService<SqlScope>() is { }
-				sqlScope))
+			else if(! (context.RequestServices.GetService<SqlScope>() is { } sqlScope))
 				return next(context);
-			else {
-				var beginMetadata = metadata?.GetMetadata<IBeginSqlTransactionEndpointMetadata>();
-				var commitOnMetadata = metadata?.GetOrderedMetadata<ICommitOnEndpointMetadata>();
-				var conflictOnMetadata = metadata?.GetOrderedMetadata<IConflictOnEndpointMetadata>();
-				return InvokeWithSqlScope(context, next, sqlScope, beginMetadata, commitOnMetadata, conflictOnMetadata);
-			}
+			else
+				return InvokeWithSqlScope(context, next, sqlScope, metadata);
 		}
 	}
 }
