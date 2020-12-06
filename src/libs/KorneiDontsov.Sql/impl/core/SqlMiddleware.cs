@@ -23,15 +23,15 @@
 			this.dbMigrationState = dbMigrationState;
 		}
 
-		Task WriteInternalServerError (HttpContext context, String devInfoFormat) =>
+		Task WriteServerError (HttpContext context, String devInfoFormat) =>
 			context.WriteTextResponse(
 				Status500InternalServerError,
 				environment.IsDevelopment() ? devInfoFormat : "Internal error occurred.");
 
-		Task WriteInternalServerError (HttpContext context, String devInfoFormat, params Object[] args) =>
+		Task WriteFormattedServerError (HttpContext context, FormattableString devInfo) =>
 			context.WriteTextResponse(
 				Status500InternalServerError,
-				environment.IsDevelopment() ? String.Format(devInfoFormat, args) : "Internal error occurred.");
+				environment.IsDevelopment() ? devInfo.ToString() : "Internal error occurred.");
 
 		async Task InvokeWithSqlScope
 			(HttpContext context, RequestDelegate next, SqlScope sqlScope, EndpointMetadataCollection? metadata) {
@@ -108,13 +108,9 @@
 							? "The service is migrating database. It takes time."
 							: "The service is starting."),
 				DbMigrationResult.Canceled _ =>
-					WriteInternalServerError(context, "Database migration is canceled. Service is stopping."),
-
-				DbMigrationResult.Failed failedResult =>
-					WriteInternalServerError(
-						context,
-						"Database migration failed. Service is stopping.\n{0}",
-						failedResult.info)
+					WriteServerError(context, "Database migration is canceled. Service is stopping."),
+				DbMigrationResult.Failed f =>
+					WriteFormattedServerError(context, $"Database migration failed. Service is stopping.\n{f.info}")
 			};
 
 		/// <inheritdoc />
