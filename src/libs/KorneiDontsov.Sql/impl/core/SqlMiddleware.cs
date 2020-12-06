@@ -35,6 +35,9 @@
 
 		async Task InvokeWithSqlScope
 			(HttpContext context, RequestDelegate next, SqlScope sqlScope, EndpointMetadataCollection? metadata) {
+			static IReadOnlyList<T>? MayGetOrderedMetadata<T> (EndpointMetadataCollection? metadata) where T: class =>
+				metadata?.GetOrderedMetadata<T>() is {} d && d.Count > 0 ? d : null;
+
 			static Boolean ShouldCommit (Int32 statusCode, IReadOnlyList<ICommitOnEndpointMetadata> metadata) {
 				foreach(var datum in metadata)
 					if(statusCode == datum.statusCode)
@@ -68,22 +71,20 @@
 					};
 				try {
 					await next(context);
+
 					await (sqlScope.transaction is {} transaction
-					       && metadata?.GetOrderedMetadata<ICommitOnEndpointMetadata>() switch {
-						       null => context.Response.StatusCode >= 200 && context.Response.StatusCode < 300,
-						       {Count: 0} => context.Response.StatusCode >= 200 && context.Response.StatusCode < 300,
-						       {} commitOnMetadata => ShouldCommit(context.Response.StatusCode, commitOnMetadata)
-					       }
+					       && context.Response.StatusCode is var statusCode
+					       && MayGetOrderedMetadata<ICommitOnEndpointMetadata>(metadata) is var commitOn
+					       && (commitOn is null && statusCode >= 200 && statusCode < 300
+					           || commitOn is {} && ShouldCommit(statusCode, commitOn))
 						? transaction.CommitAsync(context.RequestAborted)
 						: default);
 				}
 				catch(SqlException.ConflictFailure ex)
 					when(sqlScope.transaction is {}
-					     && metadata?.GetOrderedMetadata<IConflictOnEndpointMetadata>() switch {
-						     null => ex.conflict is SqlConflict.SerializationFailure,
-						     {Count: 0} => ex.conflict is SqlConflict.SerializationFailure,
-						     {} conflictOnMetadata => ShouldConflict(ex.conflict, conflictOnMetadata)
-					     }) {
+					     && MayGetOrderedMetadata<IConflictOnEndpointMetadata>(metadata) is var conflictOn
+					     && (conflictOn is null && ex.conflict is SqlConflict.SerializationFailure
+					         || conflictOn is {} && ShouldConflict(ex.conflict, conflictOn))) {
 					var log =
 						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
 						+ "serialization failure.";
@@ -127,7 +128,7 @@
 					: DbMigrationResult.ok;
 			if(! (dbMigrationResult is DbMigrationResult.Ok))
 				return InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
-			else if(! (context.RequestServices.GetService<SqlScope>() is { } sqlScope))
+			else if(! (context.RequestServices.GetService<SqlScope>() is {} sqlScope))
 				return next(context);
 			else
 				return InvokeWithSqlScope(context, next, sqlScope, metadata);
