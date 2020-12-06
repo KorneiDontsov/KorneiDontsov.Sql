@@ -5,6 +5,7 @@
 	using System;
 	using System.Data;
 	using System.Net.Sockets;
+	using System.Runtime.CompilerServices;
 	using System.Threading;
 	using System.Threading.Tasks;
 
@@ -186,6 +187,15 @@
 			finally {
 				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
 			}
+		}
+
+		/// <inheritdoc />
+		public TConnection CreateConnection<TConnection> () where TConnection: class {
+			if(typeof(TConnection) == typeof(NpgsqlConnection))
+				return Unsafe.As<TConnection>(new NpgsqlConnection(connectionString));
+			else
+				throw new NotSupportedException(
+					$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
 		}
 	}
 }
