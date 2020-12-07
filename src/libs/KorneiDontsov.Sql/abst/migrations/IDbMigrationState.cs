@@ -1,10 +1,15 @@
 ﻿namespace KorneiDontsov.Sql.Migrations {
-	using System;
 	using System.Threading;
-	using System.Threading.Tasks;
 
 	public interface IDbMigrationState {
-		/// <exception cref = "OperationCanceledException" />
-		ValueTask<DbMigrationResult> WhenCompleted (CancellationToken cancellationToken = default);
+		/// <summary>
+		///     Result of database migration if it completed; otherwise, null.
+		/// </summary>
+		DbMigrationResult? result { get; }
+
+		/// <summary>
+		/// 	Triggers when database migration completes.
+		/// </summary>
+		CancellationToken onCompleted { get; }
 	}
 }

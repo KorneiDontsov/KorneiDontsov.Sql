@@ -1,5 +1,10 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "conf", "conf", "{77C070BD-CCC5-4EFD-AA6E-F73F75CEF84E}"
+ProjectSection(SolutionItems) = preProject
+	..\global.json = ..\global.json
+EndProjectSection
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libs", "libs", "{0CBA4524-82A5-453C-BE7C-FEE44A241FE6}"
 ProjectSection(SolutionItems) = preProject
 	libs\Directory.Build.props = libs\Directory.Build.props

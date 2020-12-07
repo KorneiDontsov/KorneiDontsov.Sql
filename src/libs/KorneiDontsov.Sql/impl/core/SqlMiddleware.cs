@@ -1,133 +1,133 @@
 ﻿namespace KorneiDontsov.Sql {
 	using KorneiDontsov.Sql.Migrations;
 	using Microsoft.AspNetCore.Http;
+	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
 	using System;
-	using System.Linq;
+	using System.Collections.Generic;
 	using System.Threading.Tasks;
-	using static System.Threading.Interlocked;
+	using static Microsoft.AspNetCore.Http.StatusCodes;
 
-	class SqlMiddleware: IMiddleware {
-		IDbProvider dbProvider { get; }
-		SqlScopeState sqlScopeState { get; }
+	sealed class SqlMiddleware: IMiddleware {
 		IHostEnvironment environment { get; }
 		ILogger logger { get; }
 		IDbMigrationState? dbMigrationState { get; }
 
 		public SqlMiddleware
-			(IDbProvider dbProvider,
-			 SqlScopeState sqlScopeState,
-			 IHostEnvironment environment,
+			(IHostEnvironment environment,
 			 ILogger<SqlMiddleware> logger,
 			 IDbMigrationState? dbMigrationState = null) {
-			this.dbProvider = dbProvider;
-			this.sqlScopeState = sqlScopeState;
 			this.environment = environment;
 			this.logger = logger;
 			this.dbMigrationState = dbMigrationState;
 		}
 
+		Task WriteServerError (HttpContext context, String devInfoFormat) =>
+			context.WriteTextResponse(
+				Status500InternalServerError,
+				environment.IsDevelopment() ? devInfoFormat : "Internal error occurred.");
+
+		Task WriteFormattedServerError (HttpContext context, FormattableString devInfo) =>
+			context.WriteTextResponse(
+				Status500InternalServerError,
+				environment.IsDevelopment() ? devInfo.ToString() : "Internal error occurred.");
+
+		async Task InvokeWithSqlScope
+			(HttpContext context, RequestDelegate next, SqlScope sqlScope, EndpointMetadataCollection? metadata) {
+			static IReadOnlyList<T>? MayGetOrderedMetadata<T> (EndpointMetadataCollection? metadata) where T: class =>
+				metadata?.GetOrderedMetadata<T>() is {} d && d.Count > 0 ? d : null;
+
+			static Boolean ShouldCommit (Int32 statusCode, IReadOnlyList<ICommitOnEndpointMetadata> metadata) {
+				foreach(var datum in metadata)
+					if(statusCode == datum.statusCode)
+						return true;
+				return false;
+			}
+
+			static Boolean ShouldConflict
+				(SqlConflict conflict, IReadOnlyList<IConflictOnEndpointMetadata> conflictOnMetadata) {
+				foreach(var datum in conflictOnMetadata)
+					if(conflict == datum.conflict)
+						return true;
+				return false;
+			}
+
+			try {
+				if(metadata?.GetMetadata<IBeginSqlTransactionEndpointMetadata>() is {} beginMetadata)
+					_ = beginMetadata.access switch {
+						SqlAccess.Rw =>
+							await sqlScope.GetOrCreateOrUpgradeRwSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted),
+						SqlAccess.Ro =>
+							await sqlScope.GetOrCreateOrUpgradeRoSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted),
+						null =>
+							await sqlScope.GetOrCreateSqlTransaction(
+								beginMetadata.isolationLevel,
+								context.RequestAborted)
+					};
+				try {
+					await next(context);
+
+					await (sqlScope.transaction is {} transaction
+					       && context.Response.StatusCode is var statusCode
+					       && MayGetOrderedMetadata<ICommitOnEndpointMetadata>(metadata) is var commitOn
+					       && (commitOn is null && statusCode >= 200 && statusCode < 300
+					           || commitOn is {} && ShouldCommit(statusCode, commitOn))
+						? transaction.CommitAsync(context.RequestAborted)
+						: default);
+				}
+				catch(SqlException.ConflictFailure ex)
+					when(sqlScope.transaction is {}
+					     && MayGetOrderedMetadata<IConflictOnEndpointMetadata>(metadata) is var conflictOn
+					     && (conflictOn is null && ex.conflict is SqlConflict.SerializationFailure
+					         || conflictOn is {} && ShouldConflict(ex.conflict, conflictOn))) {
+					var log =
+						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
+						+ "serialization failure.";
+					logger.LogWarning(
+						ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+
+					await context.WriteTextResponse(
+						Status409Conflict,
+						"Data access conflict occurred. Try again.");
+				}
+			}
+			catch(OperationCanceledException) when(context.RequestAborted.IsCancellationRequested) { }
+		}
+
+		Task InvokeWhereDbMigrationResultIsNotOk (HttpContext context, DbMigrationResult? dbMigrationResult) =>
+			dbMigrationResult switch {
+				null =>
+					context.WriteTextResponse(
+						Status503ServiceUnavailable,
+						environment.IsDevelopment()
+							? "The service is migrating database. It takes time."
+							: "The service is starting."),
+				DbMigrationResult.Canceled _ =>
+					WriteServerError(context, "Database migration is canceled. Service is stopping."),
+				DbMigrationResult.Failed f =>
+					WriteFormattedServerError(context, $"Database migration failed. Service is stopping.\n{f.info}")
+			};
+
 		/// <inheritdoc />
-		public async Task InvokeAsync (HttpContext context, RequestDelegate next) {
-			var mbEndpoint = context.GetEndpoint();
+		public Task InvokeAsync (HttpContext context, RequestDelegate next) {
+			var metadata = context.GetEndpoint()?.Metadata;
 
-			DbMigrationResult? dbMigrationResult;
-
-			if(dbMigrationState is null)
-				dbMigrationResult = null;
-			else {
-				var dbMigrationIsRequired =
-					mbEndpoint?.Metadata.GetMetadata<IDbMigrationEndpointMetadata?>()?.isRequired
-					?? true;
-				if(! dbMigrationIsRequired)
-					dbMigrationResult = null;
-				else
-					dbMigrationResult = await dbMigrationState.WhenCompleted(context.RequestAborted);
-			}
-
-			switch(dbMigrationResult) {
-				case DbMigrationResult.Canceled _:
-					await context.WriteTextResponse(
-						StatusCodes.Status503ServiceUnavailable,
-						environment.IsDevelopment()
-							? "Database migration is canceled. Service is stopping."
-							: "Service is stopping.");
-					break;
-
-				case DbMigrationResult.Failed failedResult:
-					await context.WriteTextResponse(
-						StatusCodes.Status500InternalServerError,
-						environment.IsDevelopment()
-							? $"Database migration failed. Service is stopping.\n{failedResult.info}"
-							: "Internal error occurred. Service is stopping.");
-					break;
-
-				case DbMigrationResult.Succeeded _:
-				case null:
-					var mbBeginMetadata = mbEndpoint?.Metadata.GetMetadata<IBeginSqlTransactionEndpointMetadata?>();
-					var mbCommitOnMetadata =
-						mbEndpoint?.Metadata.GetOrderedMetadata<ICommitOnEndpointMetadata>()
-							.Select(data => data.statusCode)
-							.ToHashSet();
-
-					if(mbBeginMetadata is {}
-					   && ! (mbBeginMetadata.access is SqlAccess.Ro)
-					   && (mbCommitOnMetadata is null || mbCommitOnMetadata.Count is 0)) {
-						var log =
-							"Denied to execute endpoint {requestMethod} {requestPath}: "
-							+ "endpoint requests read-write sql transaction to begin but it doesn't specify "
-							+ "commit conditions. Probably, one or more attributes [CommitOn] are missed.";
-						logger.LogError(log, context.Request.Method, context.Request.Path);
-
-						await context.WriteTextResponse(
-							StatusCodes.Status500InternalServerError,
-							environment.IsDevelopment()
-								? "Endpoint configuration error."
-								: "Internal error occurred.");
-					}
-					else
-						while(true) {
-							context.RequestAborted.ThrowIfCancellationRequested();
-
-							try {
-								sqlScopeState.transaction ??=
-									mbBeginMetadata switch {
-										{ access: SqlAccess.Rw } =>
-											await dbProvider.BeginRw(mbBeginMetadata.isolationLevel),
-										{ access: SqlAccess.Ro } =>
-											await dbProvider.BeginRo(mbBeginMetadata.isolationLevel),
-										{ access: null } =>
-											await dbProvider.Begin(SqlAccess.Ro, mbBeginMetadata.isolationLevel),
-										null => null
-									};
-
-								await next(context);
-
-								if(sqlScopeState.transaction is {} transaction
-								   && mbCommitOnMetadata?.Contains(context.Response.StatusCode) is true)
-									await transaction.CommitAsync(context.RequestAborted);
-
-								break;
-							}
-							catch(SqlException.SerializationFailure ex) {
-								var log =
-									"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
-									+ "serialization failure. Going to try again.";
-								logger.LogWarning(
-									ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
-
-								sqlScopeState.InvokeRetryEvent();
-							}
-							finally {
-								await (Exchange(ref sqlScopeState.transaction, null)?.DisposeAsync() ?? default);
-							}
-						}
-					break;
-
-				default:
-					throw new Exception($"{dbMigrationResult.GetType()} is not known.");
-			}
+			var dbMigrationResult =
+				dbMigrationState is {}
+				&& metadata?.GetMetadata<IDbMigrationEndpointMetadata>()?.isRequired != false
+					? dbMigrationState.result
+					: DbMigrationResult.ok;
+			if(! (dbMigrationResult is DbMigrationResult.Ok))
+				return InvokeWhereDbMigrationResultIsNotOk(context, dbMigrationResult);
+			else if(! (context.RequestServices.GetService<SqlScope>() is {} sqlScope))
+				return next(context);
+			else
+				return InvokeWithSqlScope(context, next, sqlScope, metadata);
 		}
 	}
 }

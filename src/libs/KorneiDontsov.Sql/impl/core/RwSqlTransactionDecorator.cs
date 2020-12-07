@@ -2,10 +2,11 @@
 	using System;
 	using System.Collections.Generic;
 	using System.Data;
+	using System.Diagnostics.CodeAnalysis;
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	class RwSqlTransactionDecorator: IManagedRwSqlTransaction {
+	sealed class RwSqlTransactionDecorator: IManagedRwSqlTransaction {
 		readonly IManagedSqlTransaction transaction;
 
 		public RwSqlTransactionDecorator (IManagedSqlTransaction transaction) =>
@@ -18,6 +19,24 @@
 		/// <inheritdoc />
 		public Int32 defaultQueryTimeout =>
 			transaction.defaultQueryTimeout;
+
+		/// <inheritdoc />
+		public ValueTask DisposeAsync () =>
+			transaction.DisposeAsync();
+
+		/// <inheritdoc />
+		public void OnCommitted (Action action) => transaction.OnCommitted(action);
+
+		/// <inheritdoc />
+		public void OnCommitted (Func<ValueTask> action) => transaction.OnCommitted(action);
+
+		/// <inheritdoc />
+		public ValueTask CommitAsync (CancellationToken cancellationToken = default) =>
+			transaction.CommitAsync(cancellationToken);
+
+		/// <inheritdoc />
+		public ValueTask RollbackAsync (CancellationToken cancellationToken = default) =>
+			transaction.RollbackAsync(cancellationToken);
 
 		/// <inheritdoc />
 		public ValueTask ExecuteAsync
@@ -123,7 +142,7 @@
 			transaction.QueryFirstRow<T>(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
-		public ValueTask<dynamic> QueryFirstRowOrDefault
+		public ValueTask<dynamic?> QueryFirstRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -131,6 +150,7 @@
 			transaction.QueryFirstRowOrDefault(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public ValueTask<T> QueryFirstRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -155,7 +175,7 @@
 			transaction.QuerySingleRow<T>(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
-		public ValueTask<dynamic> QuerySingleRowOrDefault
+		public ValueTask<dynamic?> QuerySingleRowOrDefault
 			(String sql,
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
@@ -163,6 +183,7 @@
 			transaction.QuerySingleRowOrDefault(sql, cancellationToken, args, queryTimeout);
 
 		/// <inheritdoc />
+		[return: MaybeNull]
 		public ValueTask<T> QuerySingleRowOrDefault<T>
 			(String sql,
 			 CancellationToken cancellationToken = default,
@@ -185,17 +206,5 @@
 			 Object? args = null,
 			 Int32? queryTimeout = null) =>
 			transaction.QueryScalar<T>(sql, cancellationToken, args, queryTimeout);
-
-		/// <inheritdoc />
-		public ValueTask DisposeAsync () =>
-			transaction.DisposeAsync();
-
-		/// <inheritdoc />
-		public ValueTask CommitAsync (CancellationToken cancellationToken = default) =>
-			transaction.CommitAsync(cancellationToken);
-
-		/// <inheritdoc />
-		public ValueTask RollbackAsync (CancellationToken cancellationToken = default) =>
-			transaction.RollbackAsync(cancellationToken);
 	}
 }

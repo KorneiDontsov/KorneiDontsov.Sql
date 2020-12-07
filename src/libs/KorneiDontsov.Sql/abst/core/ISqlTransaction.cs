@@ -1,3 +1,10 @@
 ﻿namespace KorneiDontsov.Sql {
-	public interface ISqlTransaction: ISqlProvider { }
+	using System;
+	using System.Threading.Tasks;
+
+	public interface ISqlTransaction: ISqlProvider {
+		void OnCommitted (Action action);
+
+		void OnCommitted (Func<ValueTask> action);
+	}
 }

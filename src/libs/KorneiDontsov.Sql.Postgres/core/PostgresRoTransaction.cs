@@ -3,7 +3,7 @@
 	using System;
 	using System.Data;
 
-	class PostgresRoTransaction: PostgresTransaction, IManagedRoSqlTransaction {
+	sealed class PostgresRoTransaction: PostgresTransaction, IManagedRoSqlTransaction {
 		public PostgresRoTransaction
 			(NpgsqlConnection npgsqlConnection,
 			 NpgsqlTransaction npgsqlTransaction,
