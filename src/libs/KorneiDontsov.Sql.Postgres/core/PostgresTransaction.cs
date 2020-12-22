@@ -5,6 +5,7 @@
 	using System.Collections.Generic;
 	using System.Collections.Immutable;
 	using System.Data;
+	using System.Data.Common;
 	using System.Diagnostics.CodeAnalysis;
 	using System.Runtime.CompilerServices;
 	using System.Threading;
@@ -473,7 +474,9 @@
 
 		/// <inheritdoc />
 		public TConnection GetConnection<TConnection> () where TConnection: class {
-			if(typeof(TConnection) == typeof(NpgsqlConnection))
+			if(typeof(TConnection) == typeof(NpgsqlConnection)
+			   || typeof(TConnection) == typeof(DbConnection)
+			   || typeof(TConnection) == typeof(IDbConnection))
 				return Unsafe.As<TConnection>(npgsqlConnection);
 			else
 				throw new NotSupportedException(
