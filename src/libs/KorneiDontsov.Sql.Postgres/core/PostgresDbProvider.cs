@@ -127,7 +127,7 @@
 				npgsqlConnection = null;
 				return transaction;
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 			finally {
 				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
 			}
@@ -155,7 +155,7 @@
 				npgsqlConnection = null;
 				return transaction;
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 			finally {
 				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
 			}
@@ -183,7 +183,7 @@
 				npgsqlConnection = null;
 				return transaction;
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 			finally {
 				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
 			}

@@ -100,8 +100,8 @@ namespace KorneiDontsov.Sql.Migrations {
 				migrationPlan.migrationSchema switch {
 					null => throw new Exception("Migration schema is null."),
 					"" => throw new Exception("Migration schema is empty string."),
-					{} value when IsNullOrWhiteSpace(value) => throw new Exception("Migration schema is white space."),
-					{} value => value
+					{ } value when IsNullOrWhiteSpace(value) => throw new Exception("Migration schema is white space."),
+					{ } value => value
 				};
 
 			var migrationDescriptors = new MigrationDescriptorCollection();
@@ -120,9 +120,9 @@ namespace KorneiDontsov.Sql.Migrations {
 			 CancellationToken cancellationToken) {
 			var mbLastMigration = await
 				dbMigrationProvider.MaybeLastMigrationInfo(transaction, migrationSchema, cancellationToken);
-			if(! (mbLastMigration is {} lastMigration))
+			if(! (mbLastMigration is { } lastMigration))
 				return descriptors[0];
-			else if(descriptors.MayGetById(lastMigration.id) is {index: var expectedIndex}
+			else if(descriptors.MayGetById(lastMigration.id) is { index: var expectedIndex }
 			        && lastMigration.index != expectedIndex) {
 				var msg =
 					$"Expected migration '{lastMigration.id}' to be at '{expectedIndex}', but found at "
@@ -168,7 +168,7 @@ namespace KorneiDontsov.Sql.Migrations {
 						var msg = $"Pretest of migration '{descriptor.id}' ended without error.";
 						throw new SqlException.MigrationFailure(msg);
 					}
-					case {}: {
+					case { }: {
 						var log = "Pretest of migration '{migrationId}' ended with error.\n{error}";
 						logger.LogInformation(log, descriptor.id, error);
 						break;
@@ -178,9 +178,9 @@ namespace KorneiDontsov.Sql.Migrations {
 
 			await migration.Exec(transaction, cancellationToken);
 
-			if(test is {}) {
+			if(test is { }) {
 				var error = await test.Test(transaction, cancellationToken);
-				if(error is {}) {
+				if(error is { }) {
 					var msg = $"Pretest of migration '{descriptor.id}' ended with error.\n{error}";
 					throw new SqlException.MigrationFailure(msg);
 				}
@@ -196,7 +196,7 @@ namespace KorneiDontsov.Sql.Migrations {
 						await using var transaction = await dbProvider.BeginRwSerializable(stoppingToken);
 						var descriptor = await
 							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, stoppingToken);
-						if(descriptor is {})
+						if(descriptor is { })
 							try {
 								var startLog = "Run migration '{migrationId}' ({current}/{total}).";
 								logger.LogInformation(startLog, descriptor.id, descriptor.index + 1, descriptors.count);
