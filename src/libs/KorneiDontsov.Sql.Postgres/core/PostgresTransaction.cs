@@ -470,5 +470,14 @@
 			}
 			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
+
+		/// <inheritdoc />
+		public TConnection GetConnection<TConnection> () where TConnection: class {
+			if(typeof(TConnection) == typeof(NpgsqlConnection))
+				return Unsafe.As<TConnection>(npgsqlConnection);
+			else
+				throw new NotSupportedException(
+					$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
+		}
 	}
 }
