@@ -76,25 +76,37 @@
 			catch(OperationCanceledException) { }
 		}
 
-		async Task HandlePingDbTask (Task pingDbTask, CancellationToken cancellationToken) {
-			var whenCompletedOrCanceled =
-				await Task.WhenAny(pingDbTask, Task.Delay(Timeout.Infinite, cancellationToken)).ConfigureAwait(false);
-			if(whenCompletedOrCanceled != pingDbTask)
-				await whenCompletedOrCanceled.ConfigureAwait(false);
-			else if(! pingDbTask.IsCompletedSuccessfully) {
-				var msg =
-					"Failed to await until database is ready to accept connections. "
-					+ $"Connection string: {connectionString}.";
-				throw new Exception(msg, pingDbTask.Exception);
-			}
+		SqlException DbIsNotReadyException (Exception innerException) {
+			var msg =
+				"Failed to await until database is ready to accept connections. "
+				+ $"Connection string: {connectionString}.";
+			return new SqlException(msg, innerException);
 		}
 
-		Task? pingDbTask = null;
+		async Task HandlePingDbTask (Task pingDbTask, CancellationToken ct) {
+			var whenCompletedOrCanceled =
+				await Task.WhenAny(pingDbTask, Task.Delay(Timeout.Infinite, ct)).ConfigureAwait(false);
+			if(whenCompletedOrCanceled != pingDbTask)
+				await whenCompletedOrCanceled.ConfigureAwait(false);
+			else if(! pingDbTask.IsCompletedSuccessfully)
+				throw DbIsNotReadyException(pingDbTask.Exception!);
+		}
 
-		Task WhenDbIsReady (CancellationToken cancellationToken) =>
-			! settings.awaitUntilDbIsReady
-				? Task.CompletedTask
-				: HandlePingDbTask(pingDbTask ??= PingDbUntilItsReady(connectionString), cancellationToken);
+		volatile Task? pingDbTask = null;
+
+		Task WhenDbIsReady (CancellationToken ct) =>
+			// ReSharper disable once NonAtomicCompoundOperator
+			pingDbTask ??= PingDbUntilItsReady(connectionString) switch {
+				{ IsCompletedSuccessfully: true } => Task.CompletedTask,
+				{ IsCompleted: false } task => HandlePingDbTask(task, ct),
+				var task => throw DbIsNotReadyException(task.Exception!)
+			};
+
+		Task WhenDbIsReadyIfRequired (CancellationToken ct) =>
+			settings.awaitUntilDbIsReady switch {
+				false => Task.CompletedTask,
+				true => WhenDbIsReady(ct)
+			};
 
 		/// <inheritdoc />
 		public String databaseName => settings.database;
@@ -111,7 +123,7 @@
 			 IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
+			await WhenDbIsReadyIfRequired(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			try {
@@ -139,7 +151,7 @@
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
+			await WhenDbIsReadyIfRequired(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			try {
@@ -167,7 +179,7 @@
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
 			 Int32? defaultQueryTimeout = null) {
-			await WhenDbIsReady(cancellationToken).ConfigureAwait(false);
+			await WhenDbIsReadyIfRequired(cancellationToken).ConfigureAwait(false);
 
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			try {
