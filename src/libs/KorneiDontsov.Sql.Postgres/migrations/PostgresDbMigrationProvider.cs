@@ -54,7 +54,7 @@
 			var sql = $"select index, id from \"{schemaName}\".migrations order by index desc limit 1";
 			var row =
 				await transaction.QueryFirstRowOrDefault<MigrationRow?>(sql, cancellationToken).ConfigureAwait(false);
-			if(row is {})
+			if(row is { })
 				return (row.index, row.id);
 			else
 				return null;

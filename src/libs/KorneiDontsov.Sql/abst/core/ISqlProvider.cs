@@ -191,5 +191,15 @@
 			 CancellationToken cancellationToken = default,
 			 Object? args = null,
 			 Int32? queryTimeout = null);
+
+		/// <summary>
+		///     Gets implementation-level database connection used by this SQL provider.
+		/// </summary>
+		/// <exception cref = "NotSupportedException">
+		///     This method is not supported by implementation or
+		///     <typeparamref name = "TConnection" /> is not correct type of implementation-level connection.
+		/// </exception>
+		TConnection GetConnection<TConnection> () where TConnection: class =>
+			throw new NotSupportedException();
 	}
 }

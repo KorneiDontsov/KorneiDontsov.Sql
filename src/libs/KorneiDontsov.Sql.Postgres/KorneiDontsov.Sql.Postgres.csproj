@@ -7,7 +7,7 @@
 
 	<PropertyGroup>
 		<Product>KorneiDontsov.Npgsql</Product>
-		<Version>0.4.0</Version>
+		<Version>0.5.0</Version>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -23,7 +23,7 @@
 	<Choose>
 		<When Condition="'$(Configuration)' == 'NuGet'">
 			<ItemGroup>
-				<PackageReference Include="KorneiDontsov.Sql" Version="0.4.0" />
+				<PackageReference Include="KorneiDontsov.Sql" Version="0.5.0" />
 			</ItemGroup>
 		</When>
 		<Otherwise>

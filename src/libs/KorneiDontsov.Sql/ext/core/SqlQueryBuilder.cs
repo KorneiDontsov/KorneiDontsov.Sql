@@ -32,7 +32,7 @@
 		}
 
 		public SqlQueryBuilder With (Object args) {
-			if(this.args is {} argsCollection)
+			if(this.args is { } argsCollection)
 				argsCollection.AddDynamicParams(args);
 			else
 				this.args = new DynamicParameters(args);

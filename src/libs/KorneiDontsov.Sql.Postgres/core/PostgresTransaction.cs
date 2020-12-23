@@ -5,6 +5,7 @@
 	using System.Collections.Generic;
 	using System.Collections.Immutable;
 	using System.Data;
+	using System.Data.Common;
 	using System.Diagnostics.CodeAnalysis;
 	using System.Runtime.CompilerServices;
 	using System.Threading;
@@ -106,7 +107,7 @@
 			try {
 				await npgsqlTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 
 			var locked = false;
 			try {
@@ -132,7 +133,7 @@
 			try {
 				await npgsqlTransaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		CommandDefinition CreateCommand
@@ -165,7 +166,7 @@
 						_ =>
 							null
 					};
-				if(assertionFailure is {}) {
+				if(assertionFailure is { }) {
 					var msg =
 						assertionFailure
 						+ $"{Environment.NewLine}Connection string: {npgsqlConnection.ConnectionString}"
@@ -175,7 +176,7 @@
 				}
 			}
 			catch(SqlException) { throw; }
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -190,7 +191,7 @@
 			try {
 				return await npgsqlConnection.ExecuteAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -205,7 +206,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -220,7 +221,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -236,7 +237,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -252,7 +253,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -268,7 +269,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -284,7 +285,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -300,7 +301,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -316,7 +317,7 @@
 			try {
 				return await npgsqlConnection.QueryAsync(cmd, map, splitOn).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -331,7 +332,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -346,7 +347,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -361,7 +362,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -377,7 +378,7 @@
 			try {
 				return await npgsqlConnection.QueryFirstOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -392,7 +393,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -407,7 +408,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -422,7 +423,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -438,7 +439,7 @@
 			try {
 				return await npgsqlConnection.QuerySingleOrDefaultAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -453,7 +454,7 @@
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 		}
 
 		/// <inheritdoc />
@@ -468,7 +469,18 @@
 			try {
 				return await npgsqlConnection.ExecuteScalarAsync<T>(cmd).ConfigureAwait(false);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is {} sqlEx) { throw sqlEx; }
+			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
+		}
+
+		/// <inheritdoc />
+		public TConnection GetConnection<TConnection> () where TConnection: class {
+			if(typeof(TConnection) == typeof(NpgsqlConnection)
+			   || typeof(TConnection) == typeof(DbConnection)
+			   || typeof(TConnection) == typeof(IDbConnection))
+				return Unsafe.As<TConnection>(npgsqlConnection);
+			else
+				throw new NotSupportedException(
+					$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
 		}
 	}
 }

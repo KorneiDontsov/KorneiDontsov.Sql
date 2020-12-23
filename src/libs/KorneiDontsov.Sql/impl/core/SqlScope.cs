@@ -61,7 +61,7 @@
 					CreateRwSqlTransaction(isolationLevel, ct),
 				IManagedRoSqlTransaction _ =>
 					throw new InvalidOperationException("Not allowed to change read-only access to read-write."),
-				{} baseTransaction =>
+				{ } baseTransaction =>
 					UpgradeToRwSqlTransaction(baseTransaction, ct)
 			};
 
@@ -74,14 +74,14 @@
 					CreateRoSqlTransaction(isolationLevel, ct),
 				IManagedRwSqlTransaction _ =>
 					throw new InvalidOperationException("Not allowed to change read-write access to read-only."),
-				{} baseTransaction =>
+				{ } baseTransaction =>
 					UpgradeToRoSqlTransaction(baseTransaction, ct)
 			};
 
 		public ValueTask<IManagedSqlTransaction> GetOrCreateSqlTransaction
 			(IsolationLevel isolationLevel, CancellationToken ct = default) =>
 			transaction switch {
-				{} anyTransaction => new ValueTask<IManagedSqlTransaction>(anyTransaction),
+				{ } anyTransaction => new ValueTask<IManagedSqlTransaction>(anyTransaction),
 				null => CreateSqlTransaction(isolationLevel, ct)
 			};
 	}

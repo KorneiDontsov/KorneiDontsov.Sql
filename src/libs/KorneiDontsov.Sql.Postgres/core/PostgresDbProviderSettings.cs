@@ -81,15 +81,15 @@
 
 			static Int32 GetInt32 (IConfigurationSection conf, String propName) =>
 				conf[propName] switch {
-					{} propValue when Int32.TryParse(propValue, out var intValue) => intValue,
-					{} propValue => throw NotInteger(propName, propValue, conf),
+					{ } propValue when Int32.TryParse(propValue, out var intValue) => intValue,
+					{ } propValue => throw NotInteger(propName, propValue, conf),
 					null => throw NotFound(propName, conf)
 				};
 
 			static Int32 GetInt32OrDefault (IConfigurationSection conf, String propName, Int32 defaultValue) =>
 				conf[propName] switch {
-					{} propValue when Int32.TryParse(propValue, out var intValue) => intValue,
-					{} propValue => throw NotInteger(propName, propValue, conf),
+					{ } propValue when Int32.TryParse(propValue, out var intValue) => intValue,
+					{ } propValue => throw NotInteger(propName, propValue, conf),
 					null => defaultValue
 				};
 
@@ -101,7 +101,7 @@
 					"true" => true,
 					"false" => false,
 					null => false,
-					{} propValue => throw NotBoolean(propName, propValue, conf)
+					{ } propValue => throw NotBoolean(propName, propValue, conf)
 				};
 
 			var conf = configuration.GetSection("postgres");
@@ -112,8 +112,8 @@
 			username = GetString(conf, "username");
 			passwordSource =
 				(conf["password"], conf["passfile"]) switch {
-					({} password, _) => new PostgresPasswordSource.Text(password),
-					(_, {} pgPassFilePath) => new PostgresPasswordSource.PgPassFile(pgPassFilePath),
+					({ } password, _) => new PostgresPasswordSource.Text(password),
+					(_, { } pgPassFilePath) => new PostgresPasswordSource.PgPassFile(pgPassFilePath),
 					_ => throw NotFound("password", conf)
 				};
 			defaultQueryTimeout = GetInt32OrDefault(conf, "defaultQueryTimeout", 30);

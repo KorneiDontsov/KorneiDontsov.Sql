@@ -8,7 +8,7 @@
 		DbMigrationResult? result { get; }
 
 		/// <summary>
-		/// 	Triggers when database migration completes.
+		///     Triggers when database migration completes.
 		/// </summary>
 		CancellationToken onCompleted { get; }
 	}

@@ -10,7 +10,7 @@
 		static IServiceCollection AddSqlScoped<TService>
 			(this IServiceCollection services, Func<SqlScope, TService> create) where TService: class =>
 			services.AddScoped<TService?>(
-				sp => sp.GetService<SqlScope>() is {} sqlScope ? create(sqlScope) : null);
+				sp => sp.GetService<SqlScope>() is { } sqlScope ? create(sqlScope) : null);
 
 		public static IServiceCollection AddSql<TDbProvider> (this IServiceCollection services)
 			where TDbProvider: class, IDbProvider =>
