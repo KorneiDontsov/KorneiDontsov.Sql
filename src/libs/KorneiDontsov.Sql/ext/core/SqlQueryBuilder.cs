@@ -39,22 +39,28 @@
 			return this;
 		}
 
-		public SqlQueryBuilder With (String name, Object? value = null, DbType? dbType = null, Int32? size = null) {
+		public SqlQueryBuilder With (String name, Object? value) {
 			args ??= new DynamicParameters();
-			args.Add(name, value, dbType, direction: null);
+			args.Add(name, value);
+			return this;
+		}
+
+		public SqlQueryBuilder With (String name, Object? value, DbType? dbType) {
+			args ??= new DynamicParameters();
+			args.Add(name, value, dbType);
 			return this;
 		}
 
 		// ReSharper disable once MethodOverloadWithOptionalParameter
 		public SqlQueryBuilder With
 			(String name,
-			 Object? value = null,
-			 DbType? dbType = null,
+			 Object? value,
+			 DbType? dbType,
 			 Int32? size = null,
 			 Byte? precision = null,
 			 Byte? scale = null) {
 			args ??= new DynamicParameters();
-			args.Add(name, value, dbType, direction: null, size: size, precision: precision, scale: scale);
+			args.Add(name, value, dbType, size: size, precision: precision, scale: scale);
 			return this;
 		}
 
