@@ -5,6 +5,11 @@
 		public SqlException (String? message = null, Exception? innerException = null):
 			base(message, innerException) { }
 
+		public sealed class Timeout: SqlException {
+			public Timeout (String? message = null, Exception? innerException = null):
+				base(message, innerException) { }
+		}
+
 		public sealed class AssertionFailure: SqlException {
 			public AssertionFailure (String? message = null, Exception? innerException = null):
 				base(message, innerException) { }
