@@ -31,14 +31,17 @@
 
 		async ValueTask<IManagedSqlTransaction> CreateSqlTransaction
 			(IsolationLevel isolationLevel, CancellationToken ct = default) {
-			var newTransaction = await dbProvider.Begin(SqlAccess.Ro, isolationLevel, ct).ConfigureAwait(false);
+			var newTransaction = await dbProvider.Begin(isolationLevel, ct).ConfigureAwait(false);
 			transaction = newTransaction;
 			return newTransaction;
 		}
 
 		async ValueTask<IManagedRwSqlTransaction> UpgradeToRwSqlTransaction
 			(IManagedSqlTransaction baseTransaction, CancellationToken ct = default) {
-			await baseTransaction.SetRwAsync(ct).ConfigureAwait(false);
+			await
+				(baseTransaction.initialAccess switch { SqlAccess.Rw => default, _ => baseTransaction.SetRwAsync(ct) })
+				.ConfigureAwait(false);
+
 			var upgradedTransaction = new RwSqlTransactionDecorator(baseTransaction);
 			transaction = upgradedTransaction;
 			return upgradedTransaction;
@@ -46,7 +49,10 @@
 
 		async ValueTask<IManagedRoSqlTransaction> UpgradeToRoSqlTransaction
 			(IManagedSqlTransaction baseTransaction, CancellationToken ct = default) {
-			await baseTransaction.SetRoAsync(ct).ConfigureAwait(false);
+			await
+				(baseTransaction.initialAccess switch { SqlAccess.Ro => default, _ => baseTransaction.SetRoAsync(ct) })
+				.ConfigureAwait(false);
+
 			var upgradedTransaction = new RoSqlTransactionDecorator(baseTransaction);
 			transaction = upgradedTransaction;
 			return upgradedTransaction;
@@ -56,7 +62,7 @@
 			(IsolationLevel isolationLevel, CancellationToken ct = default) =>
 			transaction switch {
 				IManagedRwSqlTransaction rwTransaction =>
-					new ValueTask<IManagedRwSqlTransaction>(rwTransaction),
+					new(rwTransaction),
 				null =>
 					CreateRwSqlTransaction(isolationLevel, ct),
 				IManagedRoSqlTransaction _ =>
@@ -69,7 +75,7 @@
 			(IsolationLevel isolationLevel, CancellationToken ct = default) =>
 			transaction switch {
 				IManagedRoSqlTransaction roTransaction =>
-					new ValueTask<IManagedRoSqlTransaction>(roTransaction),
+					new(roTransaction),
 				null =>
 					CreateRoSqlTransaction(isolationLevel, ct),
 				IManagedRwSqlTransaction _ =>
@@ -81,7 +87,7 @@
 		public ValueTask<IManagedSqlTransaction> GetOrCreateSqlTransaction
 			(IsolationLevel isolationLevel, CancellationToken ct = default) =>
 			transaction switch {
-				{ } anyTransaction => new ValueTask<IManagedSqlTransaction>(anyTransaction),
+				{ } anyTransaction => new(anyTransaction),
 				null => CreateSqlTransaction(isolationLevel, ct)
 			};
 	}

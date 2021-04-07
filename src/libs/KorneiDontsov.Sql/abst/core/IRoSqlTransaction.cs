@@ -1,5 +1,5 @@
 ﻿namespace KorneiDontsov.Sql {
 	public interface IRoSqlTransaction: ISqlTransaction {
-		SqlAccess ISqlProvider.initialAccess => SqlAccess.Ro;
+		SqlAccess? ISqlProvider.initialAccess => SqlAccess.Ro;
 	}
 }

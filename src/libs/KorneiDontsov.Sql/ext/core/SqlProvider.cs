@@ -10,23 +10,23 @@
 		IDbProvider provider { get; }
 
 		/// <inheritdoc />
-		public SqlAccess initialAccess { get; }
-
-		/// <inheritdoc />
 		public IsolationLevel initialIsolationLevel { get; }
 
+		/// <inheritdoc />
+		public SqlAccess? initialAccess { get; }
+
 		public SqlProvider
-			(IDbProvider provider, SqlAccess initialAccess, IsolationLevel initialIsolationLevel) {
+			(IDbProvider provider, IsolationLevel initialIsolationLevel, SqlAccess? initialAccess = null) {
 			this.provider = provider;
-			this.initialAccess = initialAccess;
 			this.initialIsolationLevel = initialIsolationLevel;
+			this.initialAccess = initialAccess;
 		}
 
 		/// <inheritdoc />
 		public Int32 defaultQueryTimeout => provider.defaultQueryTimeout;
 
 		ValueTask<IManagedSqlTransaction> BeginTransaction (CancellationToken cancellationToken) =>
-			provider.Begin(initialAccess, initialIsolationLevel, cancellationToken);
+			provider.Begin(initialIsolationLevel, cancellationToken, initialAccess);
 
 		/// <inheritdoc />
 		public async ValueTask ExecuteAsync

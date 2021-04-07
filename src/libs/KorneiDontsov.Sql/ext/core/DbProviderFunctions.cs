@@ -6,27 +6,27 @@
 	public static class DbProviderFunctions {
 		public static ValueTask<IManagedSqlTransaction> BeginReadUncommitted
 			(this IDbProvider dbProvider,
-			 SqlAccess access,
+			 SqlAccess? access = null,
 			 CancellationToken cancellationToken = default) =>
-			dbProvider.Begin(access, IsolationLevel.ReadUncommitted, cancellationToken);
+			dbProvider.Begin(IsolationLevel.ReadUncommitted, cancellationToken, access);
 
 		public static ValueTask<IManagedSqlTransaction> BeginReadCommitted
 			(this IDbProvider dbProvider,
-			 SqlAccess access,
+			 SqlAccess? access = null,
 			 CancellationToken cancellationToken = default) =>
-			dbProvider.Begin(access, IsolationLevel.ReadCommitted, cancellationToken);
+			dbProvider.Begin(IsolationLevel.ReadCommitted, cancellationToken, access);
 
 		public static ValueTask<IManagedSqlTransaction> BeginRepeatableRead
 			(this IDbProvider dbProvider,
-			 SqlAccess access,
+			 SqlAccess? access = null,
 			 CancellationToken cancellationToken = default) =>
-			dbProvider.Begin(access, IsolationLevel.RepeatableRead, cancellationToken);
+			dbProvider.Begin(IsolationLevel.RepeatableRead, cancellationToken, access);
 
 		public static ValueTask<IManagedSqlTransaction> BeginSerializable
 			(this IDbProvider dbProvider,
-			 SqlAccess access,
+			 SqlAccess? access = null,
 			 CancellationToken cancellationToken = default) =>
-			dbProvider.Begin(access, IsolationLevel.Serializable, cancellationToken);
+			dbProvider.Begin(IsolationLevel.Serializable, cancellationToken, access);
 
 		public static ValueTask<IManagedRwSqlTransaction> BeginRwReadUncommitted
 			(this IDbProvider dbProvider, CancellationToken cancellationToken = default) =>
@@ -61,31 +61,31 @@
 			dbProvider.BeginRo(IsolationLevel.Serializable, cancellationToken);
 
 		public static SqlProvider Using
-			(this IDbProvider dbProvider, IsolationLevel isolationLevel, SqlAccess access) =>
-			new SqlProvider(dbProvider, access, isolationLevel);
+			(this IDbProvider dbProvider, IsolationLevel isolationLevel, SqlAccess? access = null) =>
+			new(dbProvider, isolationLevel, access);
 
 		public static SqlProvider UsingRwReadUncommitted (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Rw, IsolationLevel.ReadUncommitted);
+			new(dbProvider, IsolationLevel.ReadUncommitted, SqlAccess.Rw);
 
 		public static SqlProvider UsingRoReadUncommitted (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Ro, IsolationLevel.ReadUncommitted);
+			new(dbProvider, IsolationLevel.ReadUncommitted, SqlAccess.Ro);
 
 		public static SqlProvider UsingRwReadCommitted (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Rw, IsolationLevel.ReadCommitted);
+			new(dbProvider, IsolationLevel.ReadCommitted, SqlAccess.Rw);
 
 		public static SqlProvider UsingRoReadCommitted (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Ro, IsolationLevel.ReadCommitted);
+			new(dbProvider, IsolationLevel.ReadCommitted, SqlAccess.Ro);
 
 		public static SqlProvider UsingRwRepeatableRead (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Rw, IsolationLevel.RepeatableRead);
+			new(dbProvider, IsolationLevel.RepeatableRead, SqlAccess.Rw);
 
 		public static SqlProvider UsingRoRepeatableRead (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Ro, IsolationLevel.RepeatableRead);
+			new(dbProvider, IsolationLevel.RepeatableRead, SqlAccess.Ro);
 
 		public static SqlProvider UsingRwSerializable (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Rw, IsolationLevel.Serializable);
+			new(dbProvider, IsolationLevel.Serializable, SqlAccess.Rw);
 
 		public static SqlProvider UsingRoSerializable (this IDbProvider dbProvider) =>
-			new SqlProvider(dbProvider, SqlAccess.Ro, IsolationLevel.Serializable);
+			new(dbProvider, IsolationLevel.Serializable, SqlAccess.Ro);
 	}
 }

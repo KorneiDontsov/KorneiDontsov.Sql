@@ -17,24 +17,27 @@
 		public Int32 maxPoolSize { get; }
 		public Int32 connectionIdleLifetime { get; }
 		public Int32 connectionPruningInterval { get; }
+		public SqlAccess? defaultAccess { get; }
 
 		void Validate () {
 			if(port <= 0)
-				throw new Exception($"Port is not positive: {port}.");
+				throw new($"Port is not positive: {port}.");
 			else if(defaultQueryTimeout < 0)
-				throw new Exception($"Default query timeout is negative: {defaultQueryTimeout}.");
+				throw new($"Default query timeout is negative: {defaultQueryTimeout}.");
 			else if(connectionTimeout < 0)
-				throw new Exception($"Connection timeout is negative: {connectionTimeout}.");
+				throw new($"Connection timeout is negative: {connectionTimeout}.");
 			else if(minPoolSize < 0)
-				throw new Exception($"Min pool size is negative: {minPoolSize}");
+				throw new($"Min pool size is negative: {minPoolSize}.");
 			else if(maxPoolSize < 0)
-				throw new Exception($"Max pool size is negative: {maxPoolSize}");
+				throw new($"Max pool size is negative: {maxPoolSize}.");
 			else if(maxPoolSize < minPoolSize)
-				throw new Exception($"Max pool size '{maxPoolSize}' is less that min pool size '{minPoolSize};");
+				throw new($"Max pool size '{maxPoolSize}' is less that min pool size '{minPoolSize}.");
 			else if(connectionIdleLifetime < 0)
-				throw new Exception($"Connection idle lifetime is negative: {connectionIdleLifetime}");
+				throw new($"Connection idle lifetime is negative: {connectionIdleLifetime}.");
 			else if(connectionPruningInterval < 0)
-				throw new Exception($"Connection pruning interval is negative: {connectionPruningInterval}");
+				throw new($"Connection pruning interval is negative: {connectionPruningInterval}.");
+			else if(defaultAccess is not null && ! Enum.IsDefined(typeof(SqlAccess), defaultAccess))
+				throw new($"Default access is not valid: {defaultAccess}");
 		}
 
 		public PostgresDbProviderSettings
@@ -50,7 +53,8 @@
 			 Int32 minPoolSize = 0,
 			 Int32 maxPoolSize = 100,
 			 Int32 connectionIdleLifetime = 300,
-			 Int32 connectionPruningInterval = 10) {
+			 Int32 connectionPruningInterval = 10,
+			 SqlAccess? defaultAccess = null) {
 			this.database = database;
 			this.host = host;
 			this.port = port;
@@ -64,6 +68,7 @@
 			this.maxPoolSize = maxPoolSize;
 			this.connectionIdleLifetime = connectionIdleLifetime;
 			this.connectionPruningInterval = connectionPruningInterval;
+			this.defaultAccess = defaultAccess;
 
 			Validate();
 		}
@@ -71,13 +76,13 @@
 		[ActivatorUtilitiesConstructor]
 		public PostgresDbProviderSettings (IConfiguration configuration) {
 			static Exception NotFound (String propName, IConfigurationSection conf) =>
-				throw new Exception($"Property '{propName}' is not found in '{conf.Path}'");
+				throw new($"Property '{propName}' is not found in '{conf.Path}'");
 
 			static String GetString (IConfigurationSection conf, String propName) =>
 				conf[propName] ?? throw NotFound(propName, conf);
 
 			static Exception NotInteger (String propName, String propValue, IConfigurationSection conf) =>
-				throw new Exception($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not an integer.");
+				throw new($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not an integer.");
 
 			static Int32 GetInt32 (IConfigurationSection conf, String propName) =>
 				conf[propName] switch {
@@ -94,7 +99,7 @@
 				};
 
 			static Exception NotBoolean (String propName, String propValue, IConfigurationSection conf) =>
-				throw new Exception($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not a boolean.");
+				throw new($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not a boolean.");
 
 			static Boolean GetBooleanOrDefault (IConfigurationSection conf, String propName, Boolean defaultValue) =>
 				conf[propName]?.ToLower() switch {
@@ -124,6 +129,13 @@
 			maxPoolSize = GetInt32OrDefault(conf, "maxPoolSize", 100);
 			connectionIdleLifetime = GetInt32OrDefault(conf, "connectionIdleLifetime", 300);
 			connectionPruningInterval = GetInt32OrDefault(conf, "connectionPruningInterval", 10);
+			defaultAccess =
+				conf["defaultAccess"] switch {
+					null => null,
+					"rw" => SqlAccess.Rw,
+					"ro" => SqlAccess.Ro,
+					{ } propValue => throw new($"Default access is not valid: '{propValue}'.")
+				};
 
 			Validate();
 		}

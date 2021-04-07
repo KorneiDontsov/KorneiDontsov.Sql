@@ -18,7 +18,7 @@
 		NpgsqlTransaction npgsqlTransaction { get; }
 
 		/// <inheritdoc />
-		public SqlAccess initialAccess { get; }
+		public SqlAccess? initialAccess { get; }
 
 		/// <inheritdoc />
 		public IsolationLevel initialIsolationLevel { get; }
@@ -29,7 +29,7 @@
 		public PostgresTransaction
 			(NpgsqlConnection npgsqlConnection,
 			 NpgsqlTransaction npgsqlTransaction,
-			 SqlAccess initialAccess,
+			 SqlAccess? initialAccess,
 			 IsolationLevel initialIsolationLevel,
 			 Int32 defaultQueryTimeout) {
 			this.npgsqlConnection = npgsqlConnection;

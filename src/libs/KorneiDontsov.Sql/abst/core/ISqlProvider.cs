@@ -7,9 +7,9 @@
 	using System.Threading.Tasks;
 
 	public interface ISqlProvider {
-		SqlAccess initialAccess { get; }
-
 		IsolationLevel initialIsolationLevel { get; }
+
+		SqlAccess? initialAccess { get; }
 
 		Int32 defaultQueryTimeout { get; }
 

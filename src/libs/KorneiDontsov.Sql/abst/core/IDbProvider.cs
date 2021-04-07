@@ -14,9 +14,9 @@
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
 		ValueTask<IManagedSqlTransaction> Begin
-			(SqlAccess access,
-			 IsolationLevel isolationLevel,
+			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
+			 SqlAccess? access = null,
 			 Int32? defaultQueryTimeout = null);
 
 		/// <inheritdoc cref = "Begin" />

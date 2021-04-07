@@ -47,7 +47,7 @@
 					connectionStringBuilder.Passfile = file.path;
 					break;
 				default:
-					throw new Exception($"Password source {settings.passwordSource.GetType()} is not expected.");
+					throw new($"Password source {settings.passwordSource.GetType()} is not expected.");
 			}
 
 			connectionString = connectionStringBuilder.ConnectionString;
@@ -68,7 +68,7 @@
 						var log = "Database is not yet ready for use.\n{connectionString}";
 						logger.LogInformation(ex, log, connectionString);
 
-						await Task.Delay(500, appLifetime.ApplicationStopped).ConfigureAwait(false);
+						await Task.Delay(1_500, appLifetime.ApplicationStopped).ConfigureAwait(false);
 					}
 					finally { await npgsqlConnection.DisposeAsync().ConfigureAwait(false); }
 				}
@@ -78,9 +78,9 @@
 
 		SqlException DbIsNotReadyException (Exception innerException) {
 			var msg =
-				"Failed to await until database is ready to accept connections. "
-				+ $"Connection string: {connectionString}.";
-			return new SqlException(msg, innerException);
+				"Failed to await until database is ready to accept connections. Connection string: "
+				+ $"{connectionString}.";
+			return new(msg, innerException);
 		}
 
 		async Task HandlePingDbTask (Task pingDbTask, CancellationToken ct) {
@@ -119,9 +119,9 @@
 
 		/// <inheritdoc />
 		public async ValueTask<IManagedSqlTransaction> Begin
-			(SqlAccess access,
-			 IsolationLevel isolationLevel,
+			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
+			 SqlAccess? access = null,
 			 Int32? defaultQueryTimeout = null) {
 			await WhenDbIsReadyIfRequired(cancellationToken).ConfigureAwait(false);
 
@@ -134,9 +134,16 @@
 
 				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
 				var transaction =
-					new PostgresTransaction(npgsqlConnection, npgsqlTransaction, access, isolationLevel, timeout);
+					new PostgresTransaction(
+						npgsqlConnection,
+						npgsqlTransaction,
+						access ?? settings.defaultAccess,
+						isolationLevel,
+						timeout);
 
-				await transaction.SetAccessAsync(access, cancellationToken).ConfigureAwait(false);
+				if(access is { } accessValue && accessValue != settings.defaultAccess)
+					await transaction.SetAccessAsync(accessValue, cancellationToken).ConfigureAwait(false);
+
 				npgsqlConnection = null;
 				return transaction;
 			}
@@ -164,7 +171,9 @@
 				var transaction =
 					new PostgresRwTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-				await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
+				if(settings.defaultAccess is not SqlAccess.Rw)
+					await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
+
 				npgsqlConnection = null;
 				return transaction;
 			}
@@ -192,7 +201,9 @@
 				var transaction =
 					new PostgresRoTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
 
-				await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
+				if(settings.defaultAccess is not SqlAccess.Ro)
+					await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
+
 				npgsqlConnection = null;
 				return transaction;
 			}
