@@ -52,12 +52,22 @@
 		/// <inheritdoc />
 		public Int32 defaultQueryTimeout => settings.defaultQueryTimeout;
 
-		/// <inheritdoc />
-		public async ValueTask<IManagedSqlTransaction> Begin
+		interface IBeginTrait<TTransaction> {
+			TTransaction CreateTransaction
+				(NpgsqlConnection npgsqlConnection,
+				 NpgsqlTransaction npgsqlTransaction,
+				 IsolationLevel isolationLevel,
+				 SqlAccess? access,
+				 Int32 defaultQueryTimeout);
+		}
+
+		async ValueTask<TTransaction> Begin<TTrait, TTransaction>
 			(IsolationLevel isolationLevel,
-			 CancellationToken cancellationToken = default,
-			 SqlAccess? access = null,
-			 Int32? defaultQueryTimeout = null) {
+			 CancellationToken cancellationToken,
+			 SqlAccess? access,
+			 Int32? defaultQueryTimeout)
+			where TTrait: struct, IBeginTrait<TTransaction>
+			where TTransaction: ISqlTransaction {
 			var npgsqlConnection = new NpgsqlConnection(connectionString);
 			try {
 				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -65,14 +75,14 @@
 					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
 						.ConfigureAwait(false);
 
-				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
+				var finalTimeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
 				var transaction =
-					new PostgresTransaction(
+					default(TTrait).CreateTransaction(
 						npgsqlConnection,
 						npgsqlTransaction,
-						access ?? settings.defaultAccess,
 						isolationLevel,
-						timeout);
+						access ?? settings.defaultAccess,
+						finalTimeout);
 
 				if(access is { } accessValue && accessValue != settings.defaultAccess)
 					await transaction.SetAccessAsync(accessValue, cancellationToken).ConfigureAwait(false);
@@ -86,61 +96,82 @@
 			}
 		}
 
-		/// <inheritdoc />
-		public async ValueTask<IManagedRwSqlTransaction> BeginRw
-			(IsolationLevel isolationLevel,
-			 CancellationToken cancellationToken = default,
-			 Int32? defaultQueryTimeout = null) {
-			var npgsqlConnection = new NpgsqlConnection(connectionString);
-			try {
-				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				NpgsqlTransaction npgsqlTransaction =
-					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
-						.ConfigureAwait(false);
-
-				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-				var transaction =
-					new PostgresRwTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
-
-				if(settings.defaultAccess is not SqlAccess.Rw)
-					await transaction.SetRwAsync(cancellationToken).ConfigureAwait(false);
-
-				npgsqlConnection = null;
-				return transaction;
-			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
-			finally {
-				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
-			}
+		readonly struct BeginTrait: IBeginTrait<IManagedSqlTransaction> {
+			public IManagedSqlTransaction CreateTransaction
+				(NpgsqlConnection npgsqlConnection,
+				 NpgsqlTransaction npgsqlTransaction,
+				 IsolationLevel isolationLevel,
+				 SqlAccess? access,
+				 Int32 defaultQueryTimeout) =>
+				new PostgresTransaction(
+					npgsqlConnection,
+					npgsqlTransaction,
+					isolationLevel,
+					access,
+					defaultQueryTimeout);
 		}
 
 		/// <inheritdoc />
-		public async ValueTask<IManagedRoSqlTransaction> BeginRo
+		public ValueTask<IManagedSqlTransaction> Begin
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken = default,
-			 Int32? defaultQueryTimeout = null) {
-			var npgsqlConnection = new NpgsqlConnection(connectionString);
-			try {
-				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				NpgsqlTransaction npgsqlTransaction =
-					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
-						.ConfigureAwait(false);
+			 SqlAccess? access = null,
+			 Int32? defaultQueryTimeout = null) =>
+			Begin<BeginTrait, IManagedSqlTransaction>(
+				isolationLevel,
+				cancellationToken,
+				access,
+				defaultQueryTimeout);
 
-				var timeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-				var transaction =
-					new PostgresRoTransaction(npgsqlConnection, npgsqlTransaction, isolationLevel, timeout);
-
-				if(settings.defaultAccess is not SqlAccess.Ro)
-					await transaction.SetRoAsync(cancellationToken).ConfigureAwait(false);
-
-				npgsqlConnection = null;
-				return transaction;
-			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
-			finally {
-				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
-			}
+		readonly struct BeginRwTrait: IBeginTrait<IManagedRwSqlTransaction> {
+			public IManagedRwSqlTransaction CreateTransaction
+				(NpgsqlConnection npgsqlConnection,
+				 NpgsqlTransaction npgsqlTransaction,
+				 IsolationLevel isolationLevel,
+				 SqlAccess? access,
+				 Int32 defaultQueryTimeout) =>
+				new PostgresRwTransaction(
+					npgsqlConnection,
+					npgsqlTransaction,
+					isolationLevel,
+					defaultQueryTimeout);
 		}
+
+		/// <inheritdoc />
+		public ValueTask<IManagedRwSqlTransaction> BeginRw
+			(IsolationLevel isolationLevel,
+			 CancellationToken cancellationToken = default,
+			 Int32? defaultQueryTimeout = null) =>
+			Begin<BeginRwTrait, IManagedRwSqlTransaction>(
+				isolationLevel,
+				cancellationToken,
+				SqlAccess.Rw,
+				defaultQueryTimeout);
+
+		readonly struct BeginRoTrait: IBeginTrait<IManagedRoSqlTransaction> {
+			public IManagedRoSqlTransaction CreateTransaction
+				(NpgsqlConnection npgsqlConnection,
+				 NpgsqlTransaction npgsqlTransaction,
+				 IsolationLevel isolationLevel,
+				 SqlAccess? access,
+				 Int32 defaultQueryTimeout) =>
+				new PostgresRoTransaction(
+					npgsqlConnection,
+					npgsqlTransaction,
+					isolationLevel,
+					defaultQueryTimeout);
+		}
+
+		/// <inheritdoc />
+		public ValueTask<IManagedRoSqlTransaction> BeginRo
+			(IsolationLevel isolationLevel,
+			 CancellationToken cancellationToken = default,
+			 Int32? defaultQueryTimeout = null) =>
+			Begin<BeginRoTrait, IManagedRoSqlTransaction>(
+				isolationLevel,
+				cancellationToken,
+				SqlAccess.Ro,
+				defaultQueryTimeout);
 
 		/// <inheritdoc />
 		public TConnection CreateConnection<TConnection> () where TConnection: class {

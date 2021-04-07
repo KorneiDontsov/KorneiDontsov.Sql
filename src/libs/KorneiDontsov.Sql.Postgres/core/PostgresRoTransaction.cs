@@ -9,6 +9,6 @@
 			 NpgsqlTransaction npgsqlTransaction,
 			 IsolationLevel initialIsolationLevel,
 			 Int32 defaultQueryTimeout):
-			base(npgsqlConnection, npgsqlTransaction, SqlAccess.Ro, initialIsolationLevel, defaultQueryTimeout) { }
+			base(npgsqlConnection, npgsqlTransaction, initialIsolationLevel, SqlAccess.Ro, defaultQueryTimeout) { }
 	}
 }
