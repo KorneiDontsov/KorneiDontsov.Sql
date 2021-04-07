@@ -11,7 +11,6 @@
 		public PostgresPasswordSource passwordSource { get; }
 		public Int32 defaultQueryTimeout { get; }
 		public String? searchPath { get; }
-		public Boolean awaitUntilDbIsReady { get; }
 		public Int32 connectionTimeout { get; }
 		public Int32 minPoolSize { get; }
 		public Int32 maxPoolSize { get; }
@@ -48,7 +47,6 @@
 			 PostgresPasswordSource passwordSource,
 			 Int32 defaultQueryTimeout = 30,
 			 String? searchPath = null,
-			 Boolean awaitUntilDbIsReady = false,
 			 Int32 connectionTimeout = 15,
 			 Int32 minPoolSize = 0,
 			 Int32 maxPoolSize = 100,
@@ -62,7 +60,6 @@
 			this.passwordSource = passwordSource;
 			this.defaultQueryTimeout = defaultQueryTimeout;
 			this.searchPath = searchPath;
-			this.awaitUntilDbIsReady = awaitUntilDbIsReady;
 			this.connectionTimeout = connectionTimeout;
 			this.minPoolSize = minPoolSize;
 			this.maxPoolSize = maxPoolSize;
@@ -98,17 +95,6 @@
 					null => defaultValue
 				};
 
-			static Exception NotBoolean (String propName, String propValue, IConfigurationSection conf) =>
-				throw new($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not a boolean.");
-
-			static Boolean GetBooleanOrDefault (IConfigurationSection conf, String propName, Boolean defaultValue) =>
-				conf[propName]?.ToLower() switch {
-					"true" => true,
-					"false" => false,
-					null => false,
-					{ } propValue => throw NotBoolean(propName, propValue, conf)
-				};
-
 			var conf = configuration.GetSection("postgres");
 
 			database = GetString(conf, "database");
@@ -123,7 +109,6 @@
 				};
 			defaultQueryTimeout = GetInt32OrDefault(conf, "defaultQueryTimeout", 30);
 			searchPath = conf["searchPath"];
-			awaitUntilDbIsReady = GetBooleanOrDefault(conf, "awaitUntilDbIsReady", false);
 			connectionTimeout = GetInt32OrDefault(conf, "connectionTimeout", 15);
 			minPoolSize = GetInt32OrDefault(conf, "minPoolSize", 0);
 			maxPoolSize = GetInt32OrDefault(conf, "maxPoolSize", 100);
