@@ -216,13 +216,16 @@
 			   && typeof(TConnection) != typeof(IDbConnection)) {
 				static void ThrowNotSupported () =>
 					throw new NotSupportedException(
-						$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
+						typeof(TConnection).FullName + " is not known. Provider supports " + nameof(NpgsqlConnection)
+						+ ", " + nameof(DbConnection) + " and " + nameof(IDbConnection) + ".");
 
 				ThrowNotSupported();
 			}
 
 			return Unsafe.As<TConnection>(new NpgsqlConnection(connectionString));
 		}
+
+		public NpgsqlConnection CreateNpgsqlConnection () => new(connectionString);
 		#endregion
 
 		#region ISqlProvider

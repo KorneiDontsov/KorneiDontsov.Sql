@@ -394,13 +394,20 @@
 
 		/// <inheritdoc />
 		public TConnection GetConnection<TConnection> () where TConnection: class {
-			if(typeof(TConnection) == typeof(NpgsqlConnection)
-			   || typeof(TConnection) == typeof(DbConnection)
-			   || typeof(TConnection) == typeof(IDbConnection))
-				return Unsafe.As<TConnection>(npgsqlConnection);
-			else
-				throw new NotSupportedException(
-					$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
+			if(typeof(TConnection) != typeof(NpgsqlConnection)
+			   && typeof(TConnection) != typeof(DbConnection)
+			   && typeof(TConnection) != typeof(IDbConnection)) {
+				static void ThrowNotSupported () =>
+					throw new NotSupportedException(
+						typeof(TConnection).FullName + " is not known. Provider supports " + nameof(NpgsqlConnection)
+						+ ", " + nameof(DbConnection) + " and " + nameof(IDbConnection) + ".");
+
+				ThrowNotSupported();
+			}
+
+			return Unsafe.As<TConnection>(npgsqlConnection);
 		}
+
+		public NpgsqlConnection GetNpgsqlConnection () => npgsqlConnection;
 	}
 }
