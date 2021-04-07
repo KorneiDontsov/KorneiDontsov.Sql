@@ -1,6 +1,7 @@
 ﻿namespace KorneiDontsov.Sql.Postgres {
 	using Npgsql;
 	using System;
+	using System.Collections.Immutable;
 	using System.Data;
 	using System.Data.Common;
 	using System.Runtime.CompilerServices;
@@ -61,38 +62,75 @@
 				 Int32 defaultQueryTimeout);
 		}
 
-		async ValueTask<TTransaction> Begin<TTrait, TTransaction>
+		static readonly ImmutableArray<Int32> beginRetryDelays = ImmutableArray.Create(0, 250, 500, 1000);
+
+		async ValueTask<TTransaction> DoBegin<TTrait, TTransaction>
+			(IsolationLevel isolationLevel,
+			 CancellationToken cancellationToken,
+			 SqlAccess? access,
+			 Int32? defaultQueryTimeout,
+			 Int32 retry = 0)
+			where TTrait: struct, IBeginTrait<TTransaction>
+			where TTransaction: ISqlTransaction {
+			while(true) {
+				var npgsqlConnection = new NpgsqlConnection(connectionString);
+				try {
+					await npgsqlConnection.OpenAsync(cancellationToken);
+					var npgsqlTransaction =
+						await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken);
+
+					var finalTimeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
+					var transaction =
+						default(TTrait).CreateTransaction(
+							npgsqlConnection,
+							npgsqlTransaction,
+							isolationLevel,
+							access ?? settings.defaultAccess,
+							finalTimeout);
+
+					if(access is { } accessValue && accessValue != settings.defaultAccess)
+						await transaction.SetAccessAsync(accessValue, cancellationToken);
+
+					npgsqlConnection = null;
+					return transaction;
+				}
+				catch(NpgsqlException ex) when(ex.IsTransient) {
+					if(++ retry < beginRetryDelays.Length) {
+						var timestamp = Environment.TickCount64;
+
+						await (npgsqlConnection?.DisposeAsync() ?? default);
+						npgsqlConnection = null;
+
+						var delay = beginRetryDelays[retry] - (Int32) (Environment.TickCount64 - timestamp);
+						if(delay > 0)
+							await Task.Delay(delay, cancellationToken);
+						else
+							await Task.Yield();
+					}
+					else
+						throw NpgsqlExceptions.MatchToSqlException(ex)!;
+				}
+				catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
+				finally {
+					await (npgsqlConnection?.DisposeAsync() ?? default);
+				}
+			}
+		}
+
+		ValueTask<TTransaction> Begin<TTrait, TTransaction>
 			(IsolationLevel isolationLevel,
 			 CancellationToken cancellationToken,
 			 SqlAccess? access,
 			 Int32? defaultQueryTimeout)
 			where TTrait: struct, IBeginTrait<TTransaction>
 			where TTransaction: ISqlTransaction {
-			var npgsqlConnection = new NpgsqlConnection(connectionString);
+			var syncContext = SynchronizationContext.Current;
 			try {
-				await npgsqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
-				NpgsqlTransaction npgsqlTransaction =
-					await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken)
-						.ConfigureAwait(false);
-
-				var finalTimeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
-				var transaction =
-					default(TTrait).CreateTransaction(
-						npgsqlConnection,
-						npgsqlTransaction,
-						isolationLevel,
-						access ?? settings.defaultAccess,
-						finalTimeout);
-
-				if(access is { } accessValue && accessValue != settings.defaultAccess)
-					await transaction.SetAccessAsync(accessValue, cancellationToken).ConfigureAwait(false);
-
-				npgsqlConnection = null;
-				return transaction;
+				SynchronizationContext.SetSynchronizationContext(null);
+				return DoBegin<TTrait, TTransaction>(isolationLevel, cancellationToken, access, defaultQueryTimeout);
 			}
-			catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
 			finally {
-				await (npgsqlConnection?.DisposeAsync() ?? default).ConfigureAwait(false);
+				SynchronizationContext.SetSynchronizationContext(syncContext);
 			}
 		}
 
