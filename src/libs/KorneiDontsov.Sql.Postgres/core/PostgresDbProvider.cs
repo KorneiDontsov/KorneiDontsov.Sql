@@ -213,13 +213,17 @@
 
 		/// <inheritdoc />
 		public TConnection CreateConnection<TConnection> () where TConnection: class {
-			if(typeof(TConnection) == typeof(NpgsqlConnection)
-			   || typeof(TConnection) == typeof(DbConnection)
-			   || typeof(TConnection) == typeof(IDbConnection))
-				return Unsafe.As<TConnection>(new NpgsqlConnection(connectionString));
-			else
-				throw new NotSupportedException(
-					$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
+			if(typeof(TConnection) != typeof(NpgsqlConnection)
+			   && typeof(TConnection) != typeof(DbConnection)
+			   && typeof(TConnection) != typeof(IDbConnection)) {
+				static void ThrowNotSupported () =>
+					throw new NotSupportedException(
+						$"{typeof(TConnection)} is not known. Only {typeof(NpgsqlConnection)} is supported.");
+
+				ThrowNotSupported();
+			}
+
+			return Unsafe.As<TConnection>(new NpgsqlConnection(connectionString));
 		}
 	}
 }
