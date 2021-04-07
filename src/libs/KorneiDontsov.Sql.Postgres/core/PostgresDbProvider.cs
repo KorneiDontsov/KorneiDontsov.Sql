@@ -1,6 +1,7 @@
 ﻿namespace KorneiDontsov.Sql.Postgres {
 	using Npgsql;
 	using System;
+	using System.Collections.Generic;
 	using System.Collections.Immutable;
 	using System.Data;
 	using System.Data.Common;
@@ -44,14 +45,12 @@
 			connectionString = connectionStringBuilder.ConnectionString;
 		}
 
+		#region IDbProvider
 		/// <inheritdoc />
 		public String databaseName => settings.database;
 
 		/// <inheritdoc />
 		public String username => settings.username;
-
-		/// <inheritdoc />
-		public Int32 defaultQueryTimeout => settings.defaultQueryTimeout;
 
 		interface IBeginTrait<TTransaction> {
 			TTransaction CreateTransaction
@@ -79,14 +78,13 @@
 					var npgsqlTransaction =
 						await npgsqlConnection.BeginTransactionAsync(isolationLevel, cancellationToken);
 
-					var finalTimeout = defaultQueryTimeout ?? settings.defaultQueryTimeout;
 					var transaction =
 						default(TTrait).CreateTransaction(
 							npgsqlConnection,
 							npgsqlTransaction,
 							isolationLevel,
 							access ?? settings.defaultAccess,
-							finalTimeout);
+							defaultQueryTimeout ?? settings.defaultQueryTimeout);
 
 					if(access is { } accessValue && accessValue != settings.defaultAccess)
 						await transaction.SetAccessAsync(accessValue, cancellationToken);
@@ -225,5 +223,401 @@
 
 			return Unsafe.As<TConnection>(new NpgsqlConnection(connectionString));
 		}
+		#endregion
+
+		#region ISqlProvider
+		/// <inheritdoc />
+		public IsolationLevel initialIsolationLevel => IsolationLevel.ReadCommitted;
+
+		/// <inheritdoc />
+		public SqlAccess? initialAccess => null;
+
+		/// <inheritdoc />
+		public Int32 defaultQueryTimeout => settings.defaultQueryTimeout;
+
+		async ValueTask<PostgresConnection> DoOpenConnection
+			(CancellationToken cancellationToken,
+			 Int32? defaultQueryTimeout,
+			 Int32 retry = 0) {
+			while(true) {
+				var npgsqlConnection = new NpgsqlConnection(connectionString);
+				try {
+					await npgsqlConnection.OpenAsync(cancellationToken);
+					var connection =
+						new PostgresConnection(
+							npgsqlConnection,
+							npgsqlTransaction: null,
+							IsolationLevel.Unspecified, // doesn't matter
+							initialAccess: null,
+							defaultQueryTimeout ?? settings.defaultQueryTimeout);
+					npgsqlConnection = null;
+					return connection;
+				}
+				catch(NpgsqlException ex) when(ex.IsTransient) {
+					if(++ retry < beginRetryDelays.Length) {
+						var timestamp = Environment.TickCount64;
+
+						await (npgsqlConnection?.DisposeAsync() ?? default);
+						npgsqlConnection = null;
+
+						var delay = beginRetryDelays[retry] - (Int32) (Environment.TickCount64 - timestamp);
+						if(delay > 0)
+							await Task.Delay(delay, cancellationToken);
+						else
+							await Task.Yield();
+					}
+					else
+						throw NpgsqlExceptions.MatchToSqlException(ex)!;
+				}
+				catch(Exception ex) when(NpgsqlExceptions.MatchToSqlException(ex) is { } sqlEx) { throw sqlEx; }
+				finally {
+					await (npgsqlConnection?.DisposeAsync() ?? default);
+				}
+			}
+		}
+
+		ValueTask<PostgresConnection> OpenConnection (CancellationToken cancellationToken, Int32? defaultQueryTimeout) {
+			var syncContext = SynchronizationContext.Current;
+			try {
+				SynchronizationContext.SetSynchronizationContext(null);
+				return DoOpenConnection(cancellationToken, defaultQueryTimeout);
+			}
+			finally {
+				SynchronizationContext.SetSynchronizationContext(syncContext);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask ExecuteAsync
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null,
+			 Affect affect = Affect.Any) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				await connection.ExecuteAsync(sql, cancellationToken, args, queryTimeout, affect).ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<Int32> QueryAffectedRowsCount
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryAffectedRowsCount(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<dynamic>> QueryRows
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<T>> QueryRows<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, T3, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, T3, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, T3, T4, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, T3, T4, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, T3, T4, T5, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, T3, T4, T5, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, T3, T4, T5, T6, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, T3, T4, T5, T6, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<IEnumerable<TOutput>> QueryRows<T1, T2, T3, T4, T5, T6, T7, TOutput>
+			(String sql,
+			 String splitOn,
+			 Func<T1, T2, T3, T4, T5, T6, T7, TOutput> map,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryRows(sql, splitOn, map, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<dynamic> QueryFirstRow
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryFirstRow(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<T> QueryFirstRow<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryFirstRow<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<dynamic?> QueryFirstRowOrDefault
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryFirstRowOrDefault(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<T> QueryFirstRowOrDefault<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryFirstRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<dynamic> QuerySingleRow
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QuerySingleRow(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<T> QuerySingleRow<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QuerySingleRow<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<dynamic?> QuerySingleRowOrDefault
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QuerySingleRowOrDefault(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<T> QuerySingleRowOrDefault<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QuerySingleRowOrDefault<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<dynamic> QueryScalar
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryScalar(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		/// <inheritdoc />
+		public async ValueTask<T> QueryScalar<T>
+			(String sql,
+			 CancellationToken cancellationToken = default,
+			 Object? args = null,
+			 Int32? queryTimeout = null) {
+			var connection = await OpenConnection(cancellationToken, defaultQueryTimeout).ConfigureAwait(false);
+			try {
+				return await connection.QueryScalar<T>(sql, cancellationToken, args, queryTimeout)
+					.ConfigureAwait(false);
+			}
+			finally {
+				await connection.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+		#endregion
 	}
 }

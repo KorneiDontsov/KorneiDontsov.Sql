@@ -4,12 +4,10 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 
-	public interface IDbProvider {
+	public interface IDbProvider: ISqlProvider {
 		String databaseName { get; }
 
 		String username { get; }
-
-		Int32 defaultQueryTimeout { get; }
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
