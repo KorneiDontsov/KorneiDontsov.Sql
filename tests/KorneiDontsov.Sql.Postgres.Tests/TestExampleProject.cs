@@ -6,8 +6,6 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 	using Polly;
 	using Polly.Retry;
 	using System;
-	using System.Buffers;
-	using System.Diagnostics;
 	using System.IO;
 	using System.Net;
 	using System.Net.Http;
@@ -16,88 +14,25 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 	using System.Threading.Tasks;
 
 	public class TestExampleProject {
-		static DirectoryInfo? MayFindRepositoryDir () {
-			for(var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir is not null; dir = dir.Parent)
-				if(dir.Name is "tests")
-					return dir.Parent;
+		static DirectoryInfo GetRepositoryDir () {
+			static DirectoryInfo? Maybe () {
+				for(var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir is not null; dir = dir.Parent)
+					if(dir.Name is "tests")
+						return dir.Parent;
 
-			return null;
+				return null;
+			}
+
+			return Maybe() ?? throw new("Failed to find path to repository.");
 		}
 
-		static readonly DirectoryInfo repositoryDir =
-			MayFindRepositoryDir() ?? throw new("Failed to find path to repository.");
-
-		enum DockerComposeOutput { Stdout, Stderr }
-
-		static void DockerCompose (String args, DockerComposeOutput output = DockerComposeOutput.Stderr) {
-			var console = Console.Out;
-
-			var command = $"docker-compose {args}";
-			var workDir = Path.Combine("examples", "KorneiDontsov.Sql.Postgres.Example");
-			using var process =
-				new Process {
-					StartInfo = new() {
-						FileName = "C:/Program Files/Docker/Docker/resources/bin/docker-compose.exe",
-						Arguments = args,
-						WorkingDirectory = Path.Combine(repositoryDir.FullName, workDir),
-						RedirectStandardOutput = output is DockerComposeOutput.Stdout,
-						RedirectStandardError = output is DockerComposeOutput.Stderr
-					}
-				};
-			if(process.Start()) {
-				console.WriteLine();
-				console.WriteLine($"{workDir}> {command}");
-				console.WriteLine();
-			}
-			else {
-				var failureMsg = $"{workDir}> Failed to start '{command}'";
-				console.WriteLine();
-				console.WriteLine(failureMsg);
-				console.WriteLine();
-				throw new(failureMsg);
-			}
-
-			var dockerComposeOutput =
-				output switch {
-					DockerComposeOutput.Stdout => process.StandardOutput,
-					DockerComposeOutput.Stderr => process.StandardError
-				};
-			var bufferPool = ArrayPool<Char>.Shared;
-			var buffer = bufferPool.Rent(4096);
-			try {
-				while(dockerComposeOutput.ReadBlock(buffer, 0, 4096) is > 0 and var charsRead)
-					console.Write(buffer, 0, charsRead);
-			}
-			finally {
-				bufferPool.Return(buffer);
-			}
-
-			process.WaitForExit();
-
-			var exitCode = process.ExitCode;
-			var exitMsg = $"{workDir}> '{command}' exited with code {exitCode}.";
-			console.WriteLine();
-			console.WriteLine(exitMsg);
-			console.WriteLine();
-			if(exitCode is not 0) throw new(exitMsg);
-		}
+		static DockerService docker { get; } =
+			new(Path.Combine(GetRepositoryDir().FullName, "examples", "KorneiDontsov.Sql.Postgres.Example"));
 
 		[SetUp]
 		public void Setup () {
-			DockerCompose("build");
-			DockerCompose("down -v");
-		}
-
-		class DockerComposeUpScope: IDisposable {
-			public void Dispose () {
-				DockerCompose("logs --no-color", DockerComposeOutput.Stdout);
-				DockerCompose("down -v");
-			}
-		}
-
-		static DockerComposeUpScope DockerComposeUp () {
-			DockerCompose("up -d");
-			return new();
+			docker.Compose("build");
+			docker.Compose("down -v");
 		}
 
 		static HttpClient CreateHttpClient () =>
@@ -127,7 +62,7 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 
 		[Test]
 		public async Task GetPosts () {
-			using(DockerComposeUp()) {
+			using(docker.ComposeUp()) {
 				using var httpClient = CreateHttpClient();
 				using var response = await GetAsync(httpClient, "api/posts");
 				response.Should().HaveStatusCode(HttpStatusCode.OK)
@@ -137,7 +72,7 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 
 		[Test]
 		public async Task Post () {
-			using(DockerComposeUp()) {
+			using(docker.ComposeUp()) {
 				using var httpClient = CreateHttpClient();
 
 				var newPost = new PostDto { author = "Tester", content = "This is a test message." };
