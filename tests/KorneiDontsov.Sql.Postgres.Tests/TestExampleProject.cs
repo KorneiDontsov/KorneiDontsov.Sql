@@ -27,7 +27,9 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 		static readonly DirectoryInfo repositoryDir =
 			MayFindRepositoryDir() ?? throw new("Failed to find path to repository.");
 
-		static void DockerCompose (String args) {
+		enum DockerComposeOutput { Stdout, Stderr }
+
+		static void DockerCompose (String args, DockerComposeOutput output = DockerComposeOutput.Stderr) {
 			var console = Console.Out;
 
 			var command = $"docker-compose {args}";
@@ -38,7 +40,8 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 						FileName = "C:/Program Files/Docker/Docker/resources/bin/docker-compose.exe",
 						Arguments = args,
 						WorkingDirectory = Path.Combine(repositoryDir.FullName, workDir),
-						RedirectStandardError = true
+						RedirectStandardOutput = output is DockerComposeOutput.Stdout,
+						RedirectStandardError = output is DockerComposeOutput.Stderr
 					}
 				};
 			if(process.Start()) {
@@ -54,11 +57,15 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 				throw new(failureMsg);
 			}
 
-			var dockerComposeError = process.StandardError;
+			var dockerComposeOutput =
+				output switch {
+					DockerComposeOutput.Stdout => process.StandardOutput,
+					DockerComposeOutput.Stderr => process.StandardError
+				};
 			var bufferPool = ArrayPool<Char>.Shared;
 			var buffer = bufferPool.Rent(4096);
 			try {
-				while(dockerComposeError.ReadBlock(buffer, 0, 4096) is > 0 and var charsRead)
+				while(dockerComposeOutput.ReadBlock(buffer, 0, 4096) is > 0 and var charsRead)
 					console.Write(buffer, 0, charsRead);
 			}
 			finally {
@@ -81,9 +88,11 @@ namespace KorneiDontsov.Sql.Postgres.Tests {
 			DockerCompose("down -v");
 		}
 
-		readonly struct DockerComposeUpScope: IDisposable {
-			public void Dispose () =>
+		class DockerComposeUpScope: IDisposable {
+			public void Dispose () {
+				DockerCompose("logs --no-color", DockerComposeOutput.Stdout);
 				DockerCompose("down -v");
+			}
 		}
 
 		static DockerComposeUpScope DockerComposeUp () {

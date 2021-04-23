@@ -1,16 +1,19 @@
 namespace KorneiDontsov.Sql.Migrations {
+	using Arcanum.Routes;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Hosting;
 	using Microsoft.Extensions.Logging;
 	using System;
 	using System.Collections.Generic;
 	using System.Reflection;
+	using System.Runtime.CompilerServices;
 	using System.Threading;
 	using System.Threading.Tasks;
 	using static SqlConflict;
 	using static System.String;
 
 	sealed class DbMigrationService: BackgroundService {
+		DbMigrationRuntime runtime { get; }
 		DbMigrationState state { get; }
 		IDbProvider dbProvider { get; }
 		IDbMigrationProvider dbMigrationProvider { get; }
@@ -20,13 +23,15 @@ namespace KorneiDontsov.Sql.Migrations {
 		ILogger logger { get; }
 
 		public DbMigrationService
-			(DbMigrationState state,
+			(DbMigrationRuntime runtime,
+			 DbMigrationState state,
 			 IDbProvider dbProvider,
 			 IDbMigrationProvider dbMigrationProvider,
 			 IDbMigrationPlan migrationPlan,
 			 IHostApplicationLifetime appLifetime,
 			 IServiceProvider serviceProvider,
 			 ILogger<DbMigrationService> logger) {
+			this.runtime = runtime;
 			this.state = state;
 			this.dbProvider = dbProvider;
 			this.dbMigrationProvider = dbMigrationProvider;
@@ -37,33 +42,37 @@ namespace KorneiDontsov.Sql.Migrations {
 		}
 
 		class MigrationDescriptor {
-			public Type type { get; }
-			public Object[] parameters { get; }
+			public DbMigrationPresenter presenter { get; }
 			public Int32 index { get; }
 			public String id { get; }
 			public Boolean hasTest { get; }
 			public Boolean pretestAlwaysFails { get; }
 
-			/// <param name = "type"> Must implement <see cref = "IDbMigration" />. </param>
-			public MigrationDescriptor (Type type, Object[] parameters, Int32 index) {
-				this.type = type;
-				this.parameters = parameters;
+			public MigrationDescriptor (DbMigrationPresenter presenter, Int32 index) {
+				this.presenter = presenter;
+				this.presenter = presenter;
 				this.index = index;
-				id = type.GetCustomAttribute<DbMigrationIdAttribute>()?.value ?? type.Name;
-				hasTest = typeof(ISqlTest).IsAssignableFrom(type);
-				pretestAlwaysFails = Attribute.IsDefined(type, typeof(MigrationPretestAlwaysFailsAttribute));
+				switch(presenter) {
+					case DbMigrationPresenter.Class c:
+						id = c.type.GetCustomAttribute<DbMigrationIdAttribute>()?.value ?? c.type.Name;
+						hasTest = typeof(ISqlTest).IsAssignableFrom(c.type);
+						pretestAlwaysFails = Attribute.IsDefined(c.type, typeof(MigrationPretestAlwaysFailsAttribute));
+						break;
+					case DbMigrationPresenter.EmbeddedScript s:
+						id = s.migrationId;
+						break;
+					default:
+						throw new($"{presenter.GetType()} is not matched.");
+				}
 			}
 		}
 
 		class MigrationDescriptorCollection: IDbMigrationCollection {
-			readonly List<MigrationDescriptor> descriptors =
-				new List<MigrationDescriptor>();
+			readonly List<MigrationDescriptor> descriptors = new();
 
-			readonly Dictionary<String, MigrationDescriptor> descriptorsByIds =
-				new Dictionary<String, MigrationDescriptor>();
+			readonly Dictionary<String, MigrationDescriptor> descriptorsByIds = new();
 
-			readonly HashSet<Type> migrationTypeSet =
-				new HashSet<Type>();
+			readonly HashSet<Type> migrationTypeSet = new();
 
 			public Int32 count => descriptors.Count;
 
@@ -72,35 +81,38 @@ namespace KorneiDontsov.Sql.Migrations {
 			public MigrationDescriptor? MayGetById (String id) => descriptorsByIds.GetValueOrDefault(id);
 
 			/// <inheritdoc />
-			public void Add (Type migrationType, params Object[] parameters) {
-				var descriptor =
-					typeof(IDbMigration).IsAssignableFrom(migrationType)
-						? new MigrationDescriptor(migrationType, parameters, index: descriptors.Count)
-						: throw new ArgumentException(
-							$"Migration {migrationType} does not implement {typeof(IDbMigration)}.",
-							nameof(migrationType));
+			public void Add (DbMigrationPresenter dbMigrationPresenter) {
+				[MethodImpl(MethodImplOptions.NoInlining)]
+				static void Throw (String msg) =>
+					throw new ArgumentException(msg, nameof(dbMigrationPresenter));
 
-				if(! migrationTypeSet.Add(descriptor.type)) {
-					var msg = $"Migration type {migrationType} is already registered.";
-					throw new ArgumentException(msg, nameof(migrationType));
+				if(dbMigrationPresenter is DbMigrationPresenter.Class c && ! migrationTypeSet.Add(c.type))
+					Throw($"Migration type {c.type} is already registered.");
+
+				var descriptor = new MigrationDescriptor(dbMigrationPresenter, index: descriptors.Count);
+
+				if(! descriptorsByIds.TryAdd(descriptor.id, descriptor)) {
+					static String ToStr (DbMigrationPresenter p) =>
+						p switch {
+							DbMigrationPresenter.Class c => $"class '{c.type.FullName}'",
+							DbMigrationPresenter.EmbeddedScript s => $"script '{s.location}'"
+						};
+
+					Throw(
+						$"Migration id '{descriptor.id}' of {ToStr(dbMigrationPresenter)} is already used by "
+						+ $"{ToStr(descriptorsByIds[descriptor.id].presenter)}.");
 				}
-				else if(! descriptorsByIds.TryAdd(descriptor.id, descriptor)) {
-					var msg =
-						$"Migration id {descriptor.id} of type {migrationType} is already used "
-						+ $"by type {descriptorsByIds[descriptor.id].type}.";
-					throw new ArgumentException(msg, nameof(migrationType));
-				}
-				else
-					descriptors.Add(descriptor);
+
+				descriptors.Add(descriptor);
 			}
 		}
 
 		static (String schema, MigrationDescriptorCollection descriptors) Descript (IDbMigrationPlan migrationPlan) {
 			var schema =
 				migrationPlan.migrationSchema switch {
-					null => throw new Exception("Migration schema is null."),
-					"" => throw new Exception("Migration schema is empty string."),
-					{ } value when IsNullOrWhiteSpace(value) => throw new Exception("Migration schema is white space."),
+					null => throw new("Migration schema is null."),
+					"" => throw new("Migration schema is empty string."),
+					{ } value when IsNullOrWhiteSpace(value) => throw new("Migration schema is white space."),
 					{ } value => value
 				};
 
@@ -112,49 +124,50 @@ namespace KorneiDontsov.Sql.Migrations {
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
-		static async ValueTask<MigrationDescriptor?> MbNextDescriptor
+		static async ValueTask<MigrationDescriptor?> MayGetNextDescriptor
 			(IDbMigrationProvider dbMigrationProvider,
 			 IRwSqlTransaction transaction,
 			 String migrationSchema,
 			 MigrationDescriptorCollection descriptors,
 			 CancellationToken cancellationToken) {
-			var mbLastMigration = await
-				dbMigrationProvider.MaybeLastMigrationInfo(transaction, migrationSchema, cancellationToken);
-			if(! (mbLastMigration is { } lastMigration))
+			var maybeLastMigration =
+				await dbMigrationProvider.MaybeLastMigrationInfo(transaction, migrationSchema, cancellationToken);
+			if(maybeLastMigration is not var (lastMigrationIndex, lastMigrationId))
 				return descriptors[0];
-			else if(descriptors.MayGetById(lastMigration.id) is { index: var expectedIndex }
-			        && lastMigration.index != expectedIndex) {
+			else if(descriptors.MayGetById(lastMigrationId) is { index: var expectedIndex }
+			        && lastMigrationIndex != expectedIndex) {
 				var msg =
-					$"Expected migration '{lastMigration.id}' to be at '{expectedIndex}', but found at "
-					+ $"{lastMigration.index} as last registered migration in database.";
+					$"Expected migration '{lastMigrationId}' to be at '{expectedIndex}', but found at "
+					+ $"{lastMigrationIndex} as last registered migration in database.";
 				throw new SqlException.MigrationFailure(msg);
 			}
-			else if(lastMigration.index < 0 || lastMigration.index >= descriptors.count) {
+			else if(lastMigrationIndex < 0 || lastMigrationIndex >= descriptors.count) {
 				var msg =
-					$"Last migration that is registered in database as '{lastMigration.id}' at '{lastMigration.index}' "
+					$"Last migration that is registered in database as '{lastMigrationId}' at '{lastMigrationIndex}' "
 					+ "is not known.";
 				throw new SqlException.MigrationFailure(msg);
 			}
-			else if(descriptors[lastMigration.index].id != lastMigration.id) {
+			else if(descriptors[lastMigrationIndex].id != lastMigrationId) {
 				var msg =
-					$"Last migration that is registered in database as '{lastMigration.id}' at '{lastMigration.index}' "
-					+ $"is not known. Expected migration '{descriptors[lastMigration.index]}' here.";
+					$"Last migration that is registered in database as '{lastMigrationId}' at '{lastMigrationIndex}' "
+					+ $"is not known. Expected migration '{descriptors[lastMigrationIndex]}' here.";
 				throw new SqlException.MigrationFailure(msg);
 			}
-			else if(lastMigration.index + 1 is var nextMigrationIndex
-			        && nextMigrationIndex < descriptors.count)
-				return descriptors[nextMigrationIndex];
+			else if(lastMigrationIndex + 1 < descriptors.count)
+				return descriptors[lastMigrationIndex + 1];
 			else
 				return null;
 		}
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
-		async ValueTask MigrateAsync
-			(IRwSqlTransaction transaction, MigrationDescriptor descriptor, CancellationToken cancellationToken) {
+		async ValueTask MigrateByClassAsync
+			(IRwSqlTransaction transaction,
+			 MigrationDescriptor descriptor,
+			 DbMigrationPresenter.Class presenter,
+			 CancellationToken ct) {
 			var migration =
-				(IDbMigration)
-				ActivatorUtilities.CreateInstance(serviceProvider, descriptor.type, descriptor.parameters);
+				(IDbMigration) ActivatorUtilities.CreateInstance(serviceProvider, presenter.type, presenter.parameters);
 
 			ISqlTest? test;
 			if(! descriptor.hasTest)
@@ -162,13 +175,13 @@ namespace KorneiDontsov.Sql.Migrations {
 			else {
 				test = (ISqlTest) migration;
 
-				var error = await test.Test(transaction, cancellationToken);
+				var error = await test.Test(transaction, ct);
 				switch(error) {
 					case null when descriptor.pretestAlwaysFails: {
 						var msg = $"Pretest of migration '{descriptor.id}' ended without error.";
 						throw new SqlException.MigrationFailure(msg);
 					}
-					case { }: {
+					case not null: {
 						var log = "Pretest of migration '{migrationId}' ended with error.\n{error}";
 						logger.LogInformation(log, descriptor.id, error);
 						break;
@@ -176,15 +189,29 @@ namespace KorneiDontsov.Sql.Migrations {
 				}
 			}
 
-			await migration.Exec(transaction, cancellationToken);
+			await migration.Exec(transaction, ct);
 
-			if(test is { }) {
-				var error = await test.Test(transaction, cancellationToken);
-				if(error is { }) {
+			if(test is not null) {
+				var error = await test.Test(transaction, ct);
+				if(error is not null) {
 					var msg = $"Pretest of migration '{descriptor.id}' ended with error.\n{error}";
 					throw new SqlException.MigrationFailure(msg);
 				}
 			}
+		}
+
+		/// <exception cref = "SqlException" />
+		/// <exception cref = "OperationCanceledException" />
+		async ValueTask MigrateByScriptAsync
+			(IRwSqlTransaction transaction,
+			 MigrationDescriptor descriptor,
+			 DbMigrationPresenter.EmbeddedScript presenter,
+			 CancellationToken ct) {
+			var scriptText =
+				await runtime.startupType.Assembly.ReadResourceText(
+					presenter.location,
+					presenter.locationNamespace ?? runtime.startupType.Namespace);
+			await transaction.ExecuteAsync(scriptText, ct);
 		}
 
 		/// <inheritdoc />
@@ -194,14 +221,24 @@ namespace KorneiDontsov.Sql.Migrations {
 				await using(await dbMigrationProvider.Lock(schema, stoppingToken))
 					while(true) {
 						await using var transaction = await dbProvider.BeginRwSerializable(stoppingToken);
-						var descriptor = await
-							MbNextDescriptor(dbMigrationProvider, transaction, schema, descriptors, stoppingToken);
-						if(descriptor is { })
+						var descriptor =
+							await MayGetNextDescriptor(
+								dbMigrationProvider,
+								transaction,
+								schema,
+								descriptors,
+								stoppingToken);
+						if(descriptor is not null)
 							try {
 								var startLog = "Run migration '{migrationId}' ({current}/{total}).";
 								logger.LogInformation(startLog, descriptor.id, descriptor.index + 1, descriptors.count);
 
-								await MigrateAsync(transaction, descriptor, stoppingToken);
+								await (descriptor.presenter switch {
+									DbMigrationPresenter.Class classPresenter =>
+										MigrateByClassAsync(transaction, descriptor, classPresenter, stoppingToken),
+									DbMigrationPresenter.EmbeddedScript scriptPresenter =>
+										MigrateByScriptAsync(transaction, descriptor, scriptPresenter, stoppingToken)
+								});
 								await dbMigrationProvider.SetLastMigrationInfo(
 									transaction,
 									schema,

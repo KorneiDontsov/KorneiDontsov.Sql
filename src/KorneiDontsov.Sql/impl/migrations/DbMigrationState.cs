@@ -3,7 +3,7 @@
 	using System.Threading;
 
 	sealed class DbMigrationState: IDbMigrationState, IDisposable {
-		readonly CancellationTokenSource onCompletedSource = new CancellationTokenSource();
+		readonly CancellationTokenSource onCompletedSource = new();
 
 		DbMigrationResult? resultValue;
 

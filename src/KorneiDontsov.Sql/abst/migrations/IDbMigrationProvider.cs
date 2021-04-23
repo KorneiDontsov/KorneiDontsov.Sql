@@ -7,7 +7,7 @@
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />
 		ValueTask<IAsyncDisposable> Lock (String migrationSchema, CancellationToken cancellationToken = default) =>
-			new ValueTask<IAsyncDisposable>(AsyncDisposableStub.shared);
+			new(AsyncDisposableStub.shared);
 
 		/// <exception cref = "SqlException" />
 		/// <exception cref = "OperationCanceledException" />

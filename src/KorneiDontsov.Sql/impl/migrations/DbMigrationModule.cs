@@ -6,6 +6,7 @@
 			where TProvider: class, IDbMigrationProvider
 			where TPlan: class, IDbMigrationPlan =>
 			services
+				.AddSingleton(new DbMigrationRuntime())
 				.AddTransient<IDbMigrationProvider, TProvider>()
 				.AddTransient<IDbMigrationPlan, TPlan>()
 				.AddSingleton<DbMigrationState>()

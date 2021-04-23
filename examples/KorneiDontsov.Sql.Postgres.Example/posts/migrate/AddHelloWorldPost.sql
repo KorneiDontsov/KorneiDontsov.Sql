@@ -1,0 +1,1 @@
+﻿insert into posts(content) values ('Hello, world!');
