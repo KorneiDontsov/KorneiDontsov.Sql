@@ -4,12 +4,16 @@
 	using System.Diagnostics;
 
 	class DockerService {
-		String composeBinFilePath => "C:/Program Files/Docker/Docker/resources/bin/docker-compose.exe";
+		String composeBinFilePath { get; }
 
 		String workingDirectory { get; }
 
-		public DockerService (String workingDirectory) =>
+		public DockerService (String workingDirectory) {
+			composeBinFilePath =
+				App.configuration["docker:bin:compose"]
+				?? throw new("docker:bin:compose is not specified in appsettings.json");
 			this.workingDirectory = workingDirectory;
+		}
 
 		public void Compose (String args, DockerOutput output = DockerOutput.Stderr) {
 			var console = Console.Out;

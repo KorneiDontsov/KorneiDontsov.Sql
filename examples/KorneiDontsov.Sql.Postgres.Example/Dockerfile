@@ -5,6 +5,7 @@ WORKDIR /app
 
 COPY ./KorneiDontsov.Sql.sln .
 COPY ./src/ ./src/
+COPY ./examples/KorneiDontsov.Sql.Postgres.Example.Dto/ ./examples/KorneiDontsov.Sql.Postgres.Example.Dto/
 COPY ./examples/KorneiDontsov.Sql.Postgres.Example/ ./examples/KorneiDontsov.Sql.Postgres.Example/
 
 RUN dotnet publish ./examples/KorneiDontsov.Sql.Postgres.Example/KorneiDontsov.Sql.Postgres.Example.csproj \

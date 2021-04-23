@@ -4,10 +4,11 @@
 		<LangVersion>9.0</LangVersion>
 		<Nullable>enable</Nullable>
 		<IsPackable>false</IsPackable>
+		<NoWarn>8524</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="../../examples/KorneiDontsov.Sql.Postgres.Example/KorneiDontsov.Sql.Postgres.Example.csproj" />
+		<ProjectReference Include="../../examples/KorneiDontsov.Sql.Postgres.Example.Dto/KorneiDontsov.Sql.Postgres.Example.Dto.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -18,5 +19,10 @@
 		<PackageReference Include="NUnit3TestAdapter" Version="3.16.1" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
 		<PackageReference Include="Polly" Version="7.2.2" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="3.1.14" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="appsettings.json" CopyToOutputDirectory="Always" />
 	</ItemGroup>
 </Project>
