@@ -24,4 +24,4 @@ services:
         postgres:host: database
         postgres:port: 5432
     ports:
-      - 80:80
+      - 127.0.0.1:23456:80

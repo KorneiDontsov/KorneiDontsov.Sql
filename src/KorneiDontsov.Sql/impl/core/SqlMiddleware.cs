@@ -75,8 +75,8 @@
 					await (sqlScope.transaction is { } transaction
 					       && context.Response.StatusCode is var statusCode
 					       && MayGetOrderedMetadata<ICommitOnEndpointMetadata>(metadata) is var commitOn
-					       && (commitOn is null && statusCode >= 200 && statusCode < 300
-					           || commitOn is { } && ShouldCommit(statusCode, commitOn))
+					       && (commitOn is null && statusCode is >= 200 and < 300
+					           || commitOn is not null && ShouldCommit(statusCode, commitOn))
 						? transaction.CommitAsync(context.RequestAborted)
 						: default);
 				}
@@ -84,12 +84,11 @@
 					when(sqlScope.transaction is { }
 					     && MayGetOrderedMetadata<IConflictOnEndpointMetadata>(metadata) is var conflictOn
 					     && (conflictOn is null && ex.conflict is SqlConflict.SerializationFailure
-					         || conflictOn is { } && ShouldConflict(ex.conflict, conflictOn))) {
+					         || conflictOn is not null && ShouldConflict(ex.conflict, conflictOn))) {
 					var log =
 						"Failed to complete {requestProtocol} {requestMethod} {requestPath} with "
 						+ "serialization failure.";
-					logger.LogWarning(
-						ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
+					logger.LogWarning(ex, log, context.Request.Protocol, context.Request.Method, context.Request.Path);
 
 					await context.WriteTextResponse(
 						Status409Conflict,

@@ -1,10 +1,11 @@
-﻿# invoke from /src
+﻿# invoke from root
 
 FROM mcr.microsoft.com/dotnet/core/sdk:3.1 AS build-env
 WORKDIR /app
 
-COPY ./libs/ ./libs/
-COPY ./examples/KorneiDontsov.Sql.Postgres.Example ./examples/KorneiDontsov.Sql.Postgres.Example
+COPY ./KorneiDontsov.Sql.sln .
+COPY ./src/ ./src/
+COPY ./examples/KorneiDontsov.Sql.Postgres.Example/ ./examples/KorneiDontsov.Sql.Postgres.Example/
 
 RUN dotnet publish ./examples/KorneiDontsov.Sql.Postgres.Example/KorneiDontsov.Sql.Postgres.Example.csproj \
 	-c Release \
