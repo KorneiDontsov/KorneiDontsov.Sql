@@ -6,6 +6,7 @@
 		public DockerComposeUpScope (DockerService docker) => this.docker = docker;
 
 		public void Dispose () {
+			docker.Compose("stop");
 			docker.Compose("logs --no-color", DockerOutput.Stdout);
 			docker.Compose("down -v");
 		}

@@ -31,14 +31,12 @@
 				};
 			if(process.Start()) {
 				console.WriteLine();
-				console.WriteLine(command);
-				console.WriteLine();
+				console.WriteLine($"> {command}");
 			}
 			else {
-				var failureMsg = $"Failed to start '{command}'";
 				console.WriteLine();
+				var failureMsg = $"> Failed to start process: {command}";
 				console.WriteLine(failureMsg);
-				console.WriteLine();
 				throw new(failureMsg);
 			}
 
@@ -60,8 +58,7 @@
 			process.WaitForExit();
 
 			var exitCode = process.ExitCode;
-			var exitMsg = $"'{command}' exited with code {exitCode}.";
-			console.WriteLine();
+			var exitMsg = $"> Process exited with code {exitCode}: {command}";
 			console.WriteLine(exitMsg);
 			console.WriteLine();
 			if(exitCode is not 0) throw new(exitMsg);
