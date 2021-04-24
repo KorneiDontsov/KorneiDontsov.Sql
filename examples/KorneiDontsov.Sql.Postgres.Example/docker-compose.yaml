@@ -1,0 +1,29 @@
+﻿version: "3.3"
+volumes:
+  database-data:
+services:
+  database:
+    container_name: ${COMPOSE_PROJECT_NAME}_database
+    build:
+      context: .
+      dockerfile: Dockerfile-db
+    user: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - database-data:/var/lib/postgresql/data
+
+  webapp:
+    container_name: ${COMPOSE_PROJECT_NAME}_webapp
+    depends_on:
+      - database
+    build:
+      context: ../../
+      dockerfile: examples/KorneiDontsov.Sql.Postgres.Example/Dockerfile
+    environment:
+        DOTNET_ENVIRONMENT: Development
+        urls: http://0.0.0.0:80
+        postgres:host: database
+        postgres:port: 5432
+    ports:
+      - 127.0.0.1:23456:80
