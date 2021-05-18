@@ -2,6 +2,7 @@
 	using Microsoft.Extensions.Configuration;
 	using Microsoft.Extensions.DependencyInjection;
 	using System;
+	using System.Runtime.CompilerServices;
 
 	sealed class PostgresDbProviderSettings {
 		public String database { get; }
@@ -17,6 +18,8 @@
 		public Int32 connectionIdleLifetime { get; }
 		public Int32 connectionPruningInterval { get; }
 		public SqlAccess? defaultAccess { get; }
+
+		public Boolean convertInfinityDateTime { get; }
 
 		void Validate () {
 			if(port <= 0)
@@ -52,7 +55,8 @@
 			 Int32 maxPoolSize = 100,
 			 Int32 connectionIdleLifetime = 300,
 			 Int32 connectionPruningInterval = 10,
-			 SqlAccess? defaultAccess = null) {
+			 SqlAccess? defaultAccess = null,
+			 Boolean convertInfinityDateTime = false) {
 			this.database = database;
 			this.host = host;
 			this.port = port;
@@ -66,18 +70,51 @@
 			this.connectionIdleLifetime = connectionIdleLifetime;
 			this.connectionPruningInterval = connectionPruningInterval;
 			this.defaultAccess = defaultAccess;
+			this.convertInfinityDateTime = convertInfinityDateTime;
 
 			Validate();
 		}
 
+		public PostgresDbProviderSettings
+			(String database,
+			 String host,
+			 Int32 port,
+			 String username,
+			 PostgresPasswordSource passwordSource,
+			 Int32 defaultQueryTimeout,
+			 String? searchPath,
+			 Int32 connectionTimeout,
+			 Int32 minPoolSize,
+			 Int32 maxPoolSize,
+			 Int32 connectionIdleLifetime,
+			 Int32 connectionPruningInterval,
+			 SqlAccess? defaultAccess):
+			this(
+				database,
+				host,
+				port,
+				username,
+				passwordSource,
+				defaultQueryTimeout,
+				searchPath,
+				connectionTimeout,
+				minPoolSize,
+				maxPoolSize,
+				connectionIdleLifetime,
+				connectionPruningInterval,
+				defaultAccess,
+				convertInfinityDateTime: false) { }
+
 		[ActivatorUtilitiesConstructor]
 		public PostgresDbProviderSettings (IConfiguration configuration) {
+			[MethodImpl(MethodImplOptions.NoInlining)]
 			static Exception NotFound (String propName, IConfigurationSection conf) =>
 				throw new($"Property '{propName}' is not found in '{conf.Path}'");
 
 			static String GetString (IConfigurationSection conf, String propName) =>
 				conf[propName] ?? throw NotFound(propName, conf);
 
+			[MethodImpl(MethodImplOptions.NoInlining)]
 			static Exception NotInteger (String propName, String propValue, IConfigurationSection conf) =>
 				throw new($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not an integer.");
 
@@ -93,6 +130,18 @@
 					{ } propValue when Int32.TryParse(propValue, out var intValue) => intValue,
 					{ } propValue => throw NotInteger(propName, propValue, conf),
 					null => defaultValue
+				};
+
+			[MethodImpl(MethodImplOptions.NoInlining)]
+			static Exception NotBoolean (String propName, String propValue, IConfigurationSection conf) =>
+				throw new($"Property '{propName}' = '{propValue}' in '{conf.Path}' is not a boolean.");
+
+			static Boolean GetBooleanOrDefault (IConfigurationSection conf, String propName, Boolean defaultValue) =>
+				conf[propName]?.ToLowerInvariant() switch {
+					"true" => true,
+					"false" => false,
+					null => defaultValue,
+					{ } propValue => throw NotBoolean(propName, propValue, conf)
 				};
 
 			var conf = configuration.GetSection("postgres");
@@ -121,6 +170,7 @@
 					"ro" => SqlAccess.Ro,
 					{ } propValue => throw new($"Default access is not valid: '{propValue}'.")
 				};
+			convertInfinityDateTime = GetBooleanOrDefault(conf, "convertInfinityDateTime", false);
 
 			Validate();
 		}

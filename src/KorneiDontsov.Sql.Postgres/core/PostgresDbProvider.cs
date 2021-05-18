@@ -29,7 +29,8 @@
 					MinPoolSize = settings.minPoolSize,
 					MaxPoolSize = settings.maxPoolSize,
 					ConnectionIdleLifetime = settings.connectionIdleLifetime,
-					ConnectionPruningInterval = settings.connectionPruningInterval
+					ConnectionPruningInterval = settings.connectionPruningInterval,
+					ConvertInfinityDateTime = settings.convertInfinityDateTime
 				};
 			switch(settings.passwordSource) {
 				case PostgresPasswordSource.Text text:
